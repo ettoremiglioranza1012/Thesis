@@ -1,0 +1,120 @@
+\chapter{Background and Related Work}
+\label{ch:background}
+
+This chapter reviews the three bodies of literature that inform the design of the system presented in subsequent chapters: the integration of large language models into enterprise software, the Model Context Protocol as a standardisation layer for LLM tool interfaces, and privacy-preserving natural language processing with a focus on named entity recognition and PII protection. The chapter concludes with a survey of current approaches to secure LLM orchestration and identifies the gap that motivates this work.
+
+% ==========================================
+\section{Large Language Models in Enterprise Workflows}
+\label{sec:background_llm_enterprise}
+
+The modern generation of large language models traces its architectural lineage to the transformer, introduced by Vaswani et al.~\cite{vaswani2017attention} in 2017. The attention mechanism, which allows each token in a sequence to attend to every other token, proved to be the basis for a qualitative leap in language understanding. Scaling transformer-based models, exemplified by GPT-3~\cite{brown2020language} with its 175 billion parameters, showed that sufficiently large models exhibit capabilities not present in smaller counterparts: multi-step reasoning, few-shot generalisation from in-context examples, and reliable instruction following across diverse domains~\cite{wei2022emergent}.
+
+For enterprise software, the practical implication is a new paradigm for human-system interaction. Until recently, bridging the gap between a user's natural language expression and a system's formal data operations required rule engines, supervised intent classifiers, or custom NLP pipelines. A general-purpose language model can close that gap from the prompt alone, interpreting natural language requests and mapping them to well-typed business operations without labelled training data or domain-specific engineering.
+
+The shift creates real engineering problems. Enterprise workflows demand deterministic, auditable outputs. Sensitive business data must not be transmitted to third-party model providers. System behaviour must remain predictable under adversarial or malformed inputs. These constraints sit in direct tension with the generative, probabilistic nature of LLMs, and reconciling them is an active area of research and engineering.
+
+\subsection{Semantic Routing and Intent Classification}
+\label{subsec:background_semantic_routing}
+
+Semantic routing refers to interpreting a natural language utterance and directing it to the appropriate downstream component based on its inferred intent. Classical approaches used supervised intent classifiers trained on labelled utterance datasets~\cite{larson2019evaluation}. These models required curated training data per domain and were brittle under paraphrasing, multilingual input, or out-of-distribution requests.
+
+LLMs offer a fundamentally different approach. Because they acquire broad linguistic knowledge during pre-training, they can classify intent zero-shot given only a natural language description of the available actions. This eliminates the need for per-domain labelled datasets: routing logic can be expressed as a prompt rather than as a trained classifier. The quality of zero-shot routing depends heavily on the specificity and clarity of tool descriptions. Vague or overlapping descriptions cause the model to route incorrectly regardless of the underlying model capability, making prompt engineering a first-class concern in deployed systems.
+
+\subsection{Tool Calling and AI Agents}
+\label{subsec:background_tool_calling}
+
+The capacity for LLMs to invoke external functions (also called function calling) was formalised as a first-class API feature by major model providers in 2023. In this paradigm, the developer supplies the model with a schema describing callable functions, their parameters and return types. The model produces a structured call rather than free text; the host application executes it and feeds the result back for the model to incorporate into its response.
+
+The ReAct framework~\cite{yao2023react} formalised the interleaving of reasoning traces and tool invocations, showing that a model that explicitly reasons about which tool to call outperforms models that invoke tools without intermediate reasoning, especially in multi-step tasks. This is the AI agent paradigm: a language model acting as an orchestrator that selects and sequences tool calls to reach a higher-level goal.
+
+The Toolformer work~\cite{schick2023toolformer} demonstrated that models can learn to use external APIs from self-supervised examples, but enterprise deployments generally prefer explicit schema-driven invocation over learned tool use. Schema-driven invocation provides stronger output format guarantees and makes the routing decision auditable.
+
+Two architectural properties of tool-calling systems have direct implications for enterprise deployments. First, the model's agency can be bounded by restricting which tools it may call: exposing only business-level operations and keeping data access inside deterministic code limits the model to intent classification and parameter extraction. Second, the tool result feedback loop, in which tool outputs are returned to the model for further reasoning, is the primary vector for indirect prompt injection attacks~\cite{greshake2023not}, making its design a security-relevant decision.
+
+% ==========================================
+\section{The Model Context Protocol (MCP)}
+\label{sec:background_mcp}
+
+The Model Context Protocol~\cite{anthropic2024mcp}, published by Anthropic in November 2024, standardises the communication interface between LLM client applications and external tool servers. Before MCP, each LLM-tool integration required bespoke glue code, custom serialisation formats, and proprietary conventions. MCP defines a vendor-neutral interface so that any compliant client can connect to any compliant server without integration-specific adaptation.
+
+The design is modelled after the Language Server Protocol (LSP)~\cite{bunder2019decoupling}, which eliminated the $N \times M$ explosion of editor-language integrations by decoupling language-analysis servers from editor clients. MCP applies the same logic: any client that speaks MCP can talk to any server that speaks MCP, reducing the integration surface from $N \times M$ to $N + M$.
+
+\subsection{Standardizing LLM Interfaces}
+\label{subsec:background_mcp_standardization}
+
+MCP defines three categories of server-exposed primitives. \emph{Tools} are callable functions with typed input schemas and structured return values, analogous to OpenAPI operations. \emph{Resources} are read-only data sources the model can pull into its context: file contents, database records, configuration objects. \emph{Prompts} are reusable, parameterised message templates.
+
+Communication runs over two transports: standard input/output for locally spawned server processes, and HTTP with Server-Sent Events (SSE) for network-accessible servers. The underlying message format is JSON-RPC~2.0. Tool schemas are JSON Schema objects describing parameter types, constraints, and documentation. This standardised schema representation allows tooling to auto-generate type-safe client code from server definitions, reducing the risk of schema drift between client expectations and server implementation.
+
+\subsection{Security Boundaries in MCP}
+\label{subsec:background_mcp_security}
+
+MCP's security model separates three roles. The \emph{MCP host} manages client connections and controls which servers the model may reach. The \emph{MCP server} is a trusted executor with access to real data and infrastructure. The \emph{model} is a semantic reasoner: it produces structured tool calls but accesses no data source directly.
+
+This three-layer separation creates a natural enforcement point for privacy. The server is the only component that handles raw sensitive data. A pre-processing step applied to user requests before they reach the model can structurally prevent PII from entering the LLM context, because the server's trust boundary sits downstream of the model. The model operates only on what the client chooses to send.
+
+Prompt injection~\cite{greshake2023not} is the primary known attack on this architecture. Malicious content embedded in tool results or externally retrieved resources can attempt to hijack the model's behaviour by simulating system-level instructions. Mitigations include restricting the model's tool set, limiting the scope of requests the model may issue, and routing business logic through deterministic code that does not re-enter the model after execution. These mitigations reduce the attack surface but do not eliminate it, and the design of the tool result feedback loop remains an open security concern in MCP deployments.
+
+% ==========================================
+\section{Privacy-Preserving Natural Language Processing}
+\label{sec:background_privacy_nlp}
+
+User requests directed at business systems routinely contain personally identifiable information: employee names, site addresses, phone numbers, absence dates. Under data protection regulations, transmitting this information to external model providers requires a valid legal basis and appropriate safeguards. This section reviews the regulatory context and the technical approaches developed to address PII exposure in NLP pipelines.
+
+\subsection{Personally Identifiable Information (PII) Definitions}
+\label{subsec:background_pii_definitions}
+
+The General Data Protection Regulation~\cite{gdpr2016}, Article~4(1), defines personal data as ``any information relating to an identified or identifiable natural person.'' Identifiability is broad: a person is identifiable if they can be singled out by name, identification number, location data, or factors specific to their physical, professional, or social identity. Combinations of individually innocuous data points can identify an individual in aggregate.
+
+Article~4(5) introduces \emph{pseudonymisation}: processing personal data so that it can no longer be attributed to a specific person without additional information, provided that additional information is kept separately with appropriate technical safeguards. Pseudonymisation is distinct from anonymisation. Pseudonymised data remains personal data under the GDPR, because the mapping between pseudonyms and identities is preserved, even if stored separately. Truly anonymous data cannot be re-linked by any reasonably likely means and falls outside the regulation entirely.
+
+This distinction has direct engineering implications for privacy-preserving LLM pipelines. A system that replaces PII with reversible tokens before sending data to an external model provider is performing pseudonymisation, not anonymisation. The privacy guarantee it provides is a limitation of PII exposure to the model, not its elimination. The token-to-entity mapping must itself be protected and handled as personal data under the GDPR.
+
+\subsection{Named Entity Recognition (NER) for Data Masking}
+\label{subsec:background_ner_masking}
+
+Named entity recognition is the NLP task of identifying and classifying contiguous spans of text that refer to named entities: persons, organisations, locations, dates, phone numbers. For PII protection, NER is the detection layer of a two-stage pipeline: entities are identified, then replaced with neutral placeholders that preserve syntactic structure without revealing identifying content.
+
+Classical NER systems based on Conditional Random Fields or bidirectional LSTMs required annotated corpora per language and domain. Pre-trained transformer encoders, BERT~\cite{devlin2019bert} and its multilingual variants, reduced data requirements substantially by enabling fine-tuning on small labelled datasets. Domain and language specificity remained a persistent challenge. A model trained on English newswire won't reliably handle Italian business communications.
+
+The error asymmetry in masking pipelines is architecturally significant. A false negative (a missed PII span) directly violates the privacy guarantee: the unmasked entity crosses the model boundary in plaintext. A false positive (a masked non-PII span) degrades the utility of the downstream task but creates no privacy breach. This asymmetry implies that detection components should be optimised for recall, with post-processing to suppress common false positives.
+
+The design of replacement tokens also affects downstream task quality. Replacing every entity with a single generic token (e.g., \texttt{[REDACTED]}) destroys structural information the model may need: if a request mentions two different people and both become the same token, the model cannot distinguish them when making a routing decision. Label-typed, numbered tokens such as \texttt{<PERSON\_0001>} and \texttt{<PERSON\_0002>} preserve entity type and cardinality while removing identifying content, enabling correct multi-entity routing even when all PII has been replaced.
+
+\subsection{Rule-based vs.\ Deep Learning Approaches (Presidio vs.\ GLiNER)}
+\label{subsec:background_presidio_gliner}
+
+Two broad approaches are available for PII detection in NLP pipelines: rule-based systems that combine regular expressions, gazetteers, and lightweight statistical models; and transformer-based systems that apply encoder models to span classification over arbitrary text.
+
+\textbf{Microsoft Presidio}~\cite{microsoft2020presidio} is the leading open-source rule-based framework. It provides recognisers for names, phone numbers, email addresses, credit card numbers, and national identifiers, built on regular expressions and context-sensitive matching, optionally extended with spaCy NER models. Its strengths are predictability, low computational cost, and an extensible plugin architecture. Its weaknesses are language dependence (most recognisers target English) and rigidity: entity types that don't match predefined patterns are silently missed, with no indication of failure. Extending coverage to a new language or entity type requires writing explicit rules, which is labour-intensive and inherently incomplete.
+
+\textbf{GLiNER}~\cite{zaratiana2023gliner} (Generalist Model for Named Entity Recognition) is a zero-shot NER model built on a bidirectional transformer encoder. Instead of training a fixed classification head per entity type, GLiNER conditions detection on natural language label descriptions given at inference time. The model computes a similarity score between the label description and each candidate span, enabling detection of arbitrary entity types without fine-tuning. The multilingual variant \texttt{urchade/gliner\_multi-v2.1}, trained on data spanning multiple European languages, provides coverage of morphologically rich languages such as Italian, including proper name patterns and domain-specific vocabulary that rule-based approaches miss.
+
+Compared to Presidio, GLiNER offers three concrete advantages for multilingual and domain-diverse deployments. The detection label set is configurable at runtime without model retraining. Italian-language support is native, not an adaptation. Each prediction carries a confidence score, enabling a configurable threshold to tune the precision-recall trade-off. A post-processing pipeline over raw GLiNER predictions (span normalisation, stopword filtering, overlap deduplication) can further improve precision without sacrificing recall on genuine PII.
+
+% ==========================================
+\section{State of the Art in Secure LLM Orchestration}
+\label{sec:background_sota}
+
+The dominant pattern in privacy-sensitive LLM deployments is a \emph{privacy-preserving proxy}: a pre-processing layer that sanitises user input before it reaches the model. Early implementations used regular expression substitution, adequate for structured PII (phone numbers, email addresses) but inadequate for unstructured natural language. More recent work applies transformer-based NER, trading computational cost for substantially better recall on diverse inputs.
+
+The literature addresses detection and masking largely in isolation. End-to-end systems that detect PII, mask it before the model boundary, execute business operations using real values server-side, and return a safe response to the client remain uncommon in published work. Most published systems stop at the masking step and do not address the operational requirement that tool execution needs the original entity values, not their placeholders.
+
+\subsection{OpenAI Privacy Filter: A Reference Open-Weight Model for PII Redaction}
+\label{subsec:background_openai_privacy_filter}
+
+The most significant open-weight contribution to this space is OpenAI's Privacy Filter~\cite{openai2025privacyfilter}, released in April~2025 under the Apache~2.0 licence. It is the first publicly available, production-quality PII detection model explicitly designed as a pre-processing layer for LLM pipelines.
+
+\textbf{Architecture.} Privacy Filter is a bidirectional token-classification model derived from the GPT OSS family. The autoregressive generation head is replaced by a classification head over a BIOES span-labelling scheme with 33 output classes. A constrained Viterbi decoder enforces coherent span boundaries across multi-token entities. The Sparse Mixture-of-Experts design gives 1.5~billion total parameters but only approximately 50~million active per token, enabling high-throughput inference at low cost.
+
+\textbf{Capabilities.} The model detects eight PII categories: \texttt{private\_person}, \texttt{private\_address}, \texttt{private\_email}, \texttt{private\_phone}, \texttt{private\_url}, \texttt{private\_date}, \texttt{account\_number}, and \texttt{secret}. Its context window is 128,000~tokens. On the PII-Masking-300k benchmark it achieves 96\% F1 (97.43\% on the corrected version). Fine-tuning on small in-domain datasets can push domain-specific performance from 54\% to 96\% F1 quickly, suggesting a strong general-purpose foundation.
+
+\textbf{Local execution.} The model is designed to run on-premise, within the organisation's infrastructure, removing the need for a Data Processing Agreement with a cloud vendor and addressing GDPR data residency requirements directly.
+
+\textbf{One-way redaction.} Privacy Filter performs one-way redaction: the placeholder tokens it produces carry no mapping back to the original entities. This is appropriate for use cases where the model's output does not need to reference original PII values, such as summarisation, classification, and general question-answering. For enterprise workflows in which a routing decision must trigger operations on real, identified data, one-way redaction is insufficient. A system that routes a request mentioning \texttt{<LOCATION\_0001>} must know what \texttt{<LOCATION\_0001>} is at the point of tool execution.
+
+OpenAI's model card acknowledges that Privacy Filter performs pseudonymisation under GDPR Article~4(5), not anonymisation. The placeholder tokens combined with the original document could in principle be reversed by a party holding both. This is the correct framing of what such systems achieve: they limit PII exposure to the model provider, but the mapping between tokens and entities still exists and must be managed.
+
+\textbf{Multilingual limitations.} Privacy Filter's performance on non-English languages is not officially documented and may degrade significantly on morphologically rich languages such as Italian.
+
+The body of work reviewed in this chapter establishes that privacy-preserving pre-processing is the right pattern for LLM orchestration in sensitive enterprise domains. What the existing systems do not address is the combination of reversibility with operational correctness: enabling a routing system to work on pseudonymised inputs while guaranteeing that tool execution uses the original entity values, without exposing those values to the model provider. This gap is the starting point for the architecture described in Chapter~\ref{ch:architecture}.

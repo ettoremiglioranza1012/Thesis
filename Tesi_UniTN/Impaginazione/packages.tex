@@ -1,0 +1,104 @@
+% generali
+\usepackage[utf8]{inputenc}
+\usepackage[inner=4cm, outer=3cm]{geometry}
+\usepackage[english]{babel}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage[svgnames]{xcolor}
+
+% Code listing style
+\lstdefinelanguage{CSharp}{
+    keywords={abstract,async,await,base,bool,break,byte,case,catch,char,checked,class,
+              const,continue,decimal,default,delegate,do,double,else,enum,event,explicit,
+              extern,false,finally,fixed,float,for,foreach,goto,if,implicit,in,int,
+              interface,internal,is,lock,long,namespace,new,null,object,operator,out,
+              override,params,private,protected,public,readonly,ref,return,sbyte,sealed,
+              short,sizeof,stackalloc,static,string,struct,switch,this,throw,true,try,
+              typeof,uint,ulong,unchecked,unsafe,ushort,using,var,virtual,void,volatile,
+              while,Task,List,Dictionary,IEnumerable,Guid,record},
+    sensitive=true,
+    morecomment=[l]{//},
+    morecomment=[s]{/*}{*/},
+    morestring=[b]",
+}
+\lstdefinestyle{codestyle}{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{DarkBlue}\bfseries,
+    commentstyle=\color{DarkGreen}\itshape,
+    stringstyle=\color{DarkRed},
+    showstringspaces=false,
+    tabsize=4,
+    captionpos=b,
+    aboveskip=1em,
+    belowskip=1em,
+}
+\lstset{style=codestyle}
+\usepackage{comment}
+\usepackage{setspace}
+\usepackage{appendix}
+\usepackage{lipsum}     %testo di prova (si può cancellare una volta iniziato a scrivere)
+%\usepackage{lmodern} % Load modern fonts for better font support
+
+%\usepackage[9-15]{pagesel}
+% attenzione: la filigrana in prima pagina ha opacità massima con questa opzione attivata
+% non mettendo la prima pagina comunque appare draft in background
+
+%matematica
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{physics}
+\usepackage{braket}
+
+% prima pagina
+\usepackage{frontespizio}
+\usepackage{tikz}
+%\usepackage[pages=some]{background}
+
+% linea sopra le pagine
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE]{\leftmark}
+\fancyhead[RO]{\rightmark}
+\fancyfoot[LE,RO]{\thepage}
+
+
+% bibliografia
+\usepackage[style=numeric,backend=bibtex]{biblatex}
+\addbibresource{biblio.bib}
+
+% abstract
+\newenvironment{abstract}%
+    {\cleardoublepage%
+        \thispagestyle{empty}%
+        \begin{center}%
+            \bfseries \abstractname \end{center}%
+        \vspace{1em}}%
+    {}
+
+% indice analitico
+\usepackage{imakeidx}
+\makeindex
+
+% simboli e notazioni 
+\usepackage{nomencl}
+\makenomenclature
+
+%da caricare come ultimo pacchetto per evitare problemi
+\usepackage{glossaries}
+\makeglossaries
+\newglossaryentry{set}{name={set},description={a collection of objects}}
+\newglossaryentry{due}{name={second},description={second example}}
+\newglossaryentry{emptyset}{name={\ensuremath{\emptyset}},description={the empty set}}
+\longnewglossaryentry{fishage}{name={Fish Age}}{
+    A common name for the Devonian geologic period spanning from the end of the Silurian Period to the beginning of the Carboniferous Period.
+    
+    This age was known for its remarkable variety of fish species.
+}
+\newglossaryentry{elite}{name={{é}lite},description={select group or class}}
+

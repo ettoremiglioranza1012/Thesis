@@ -1,0 +1,275 @@
+\chapter{Implementation Details}
+\label{ch:implementation}
+
+This chapter describes the concrete implementation of the Antares AI system, progressing from technology stack selection through the development of each major subsystem. Where Chapter~\ref{ch:architecture} described the system's structure and the invariants it enforces, this chapter describes how those invariants are realised in code: what language constructs, libraries, and design patterns are used to achieve the architectural goals under the practical constraints of the development context.
+
+% ==========================================
+\section{Technology Stack and Development Environment}
+\label{sec:impl_tech_stack}
+
+The system is implemented across two programming ecosystems: C\#/.NET~10~\cite{dotnet10} for the three services that form the trusted execution boundary (MCP client, Anonymization API, MCP server), and Python with FastAPI~\cite{fastapi2018} for the GLiNER NER microservice. The choice of two ecosystems reflects two distinct requirements that could not be simultaneously satisfied by a single language.
+
+The C\# ecosystem was chosen for the core services because the Antares/Miorelli business platform is built on a .NET stack, and the internship mandate included contributing to an existing codebase. .NET~10, the current long-term support release at the time of development, provides mature support for ASP.NET Core Minimal APIs, dependency injection, typed HTTP clients, and the NSwag OpenAPI toolchain. The \texttt{ModelContextProtocol.AspNetCore} package (the reference .NET implementation of the MCP server transport) is also a .NET library, making C\# the natural fit for the MCP server.
+
+Python was chosen for the GLiNER service because the GLiNER model is distributed as a Python package and the HuggingFace ecosystem, which provides the underlying transformer infrastructure, is primarily Python-native. FastAPI was selected as the HTTP framework for its automatic OpenAPI schema generation, Pydantic-based request validation, and async-first design, which is well-suited to a single-endpoint microservice with potentially variable inference latency.
+
+Redis~\cite{redis2009} serves as the sole infrastructure dependency beyond the four application services. Running on port~55000 to avoid conflicts with the default Redis port, it provides the ephemeral key-value store for token-to-entity context maps. Redis's in-memory data model provides the sub-millisecond read/write latency required for the anonymisation step to be non-blocking within the synchronous request path.
+
+Dependency management follows the conventions of each ecosystem. .NET packages are declared in \texttt{.csproj} files and resolved automatically by \texttt{dotnet restore} at build time; no manual installation step is required. Python dependencies are declared in \texttt{pyproject.toml} and managed by \texttt{uv}, a modern Python package manager that combines dependency resolution and virtual environment management. API client code is generated from OpenAPI specifications using NSwag~\cite{nswag2020}: the Anonymization API exports a YAML spec that NSwag processes to generate strongly typed C\# client classes in both the MCP server and the MCP client projects, eliminating manual HTTP client maintenance.
+
+% ==========================================
+\section{The Reversible Anonymisation Pipeline}
+\label{sec:impl_anonymization_pipeline}
+
+The anonymisation pipeline is the technical core of the system's privacy guarantee. Its implementation went through two distinct phases: an initial approach based on Microsoft Presidio that proved insufficient for the target domain, and a redesigned pipeline built around GLiNER that satisfied the recall requirements of the operational context.
+
+\subsection{Early Approach: Microsoft Presidio and its Limitations}
+\label{subsec:impl_presidio}
+
+The initial implementation used Microsoft Presidio~\cite{microsoft2020presidio} as the PII detection engine. Presidio's appeal lay in its maturity: it provides a well-documented Python SDK with built-in recognisers for common PII categories, a clear separation between detection (\texttt{AnalyzerEngine}) and replacement (\texttt{AnonymizerEngine}), and an extensible architecture that supports custom recognisers via the \texttt{EntityRecognizer} base class.
+
+In practice, Presidio's performance on the actual Italian-language business inputs received from the company proved inadequate. The built-in NER models underlying Presidio's \texttt{SpacyRecognizer} are trained primarily on English corpora; Italian named entity recognition, particularly for person names with regionally specific morphological patterns and construction site addresses, exhibited recall rates well below the threshold required for a reliable privacy guarantee. Attempts to compensate with custom pattern-based recognisers improved precision on predictable formats (email addresses, Italian fiscal codes) but had no effect on free-text person names embedded in natural language sentences. The fundamental limitation is structural: rule-based systems require explicit coverage of every entity pattern, and the diversity of Italian-language business vocabulary defies comprehensive enumeration.
+
+The decision to replace Presidio was taken after the company provided the concrete use case inputs that the system would be evaluated against. With real prompts in hand, the gap between Presidio's output and the required entity coverage was unambiguous, and a redesign of the detection layer was the only viable path to meeting the privacy invariant.
+
+\subsection{The Pivot to GLiNER for Multilingual Italian NER}
+\label{subsec:impl_gliner_pivot}
+
+The replacement of Presidio with GLiNER~\cite{zaratiana2023gliner} required a redesign of the detection microservice from the ground up. The GLiNER service is implemented as a standalone FastAPI application exposing a single \texttt{POST /analyze} endpoint that accepts a text string, a list of entity labels, a confidence threshold, and a language hint, and returns a list of detected entity spans with their labels, character offsets, and confidence scores.
+
+Model selection followed from the multilingual requirement. The \texttt{urchade/gliner\_multi-v2.1} checkpoint, a multilingual fine-tune of the GLiNER architecture trained on data spanning multiple European languages, was selected for its Italian-language coverage and its ability to handle the domain-specific vocabulary of Italian construction and workforce management. The model is loaded once at application startup and held in a module-level global, avoiding per-request loading overhead and ensuring that the first request does not incur an anomalous latency spike.
+
+The entity labels submitted to the model at inference time are configured in the Anonymization API's \texttt{appsettings.json} under the \texttt{GLiNER} section and passed through to the GLiNER service on each call:
+
+\begin{lstlisting}[language={},caption={GLiNER entity label configuration in appsettings.json}]
+"GLiNER": {
+  "BaseUrl": "http://localhost:5100",
+  "TimeoutSeconds": 30,
+  "MinScore": 0.45,
+  "Labels": [
+    "person", "organization", "location", "address",
+    "email", "phone number", "date", "time"
+  ]
+}
+\end{lstlisting}
+
+This configuration externalises the detection policy from the model itself. Adjusting which entity types to detect, or changing the confidence threshold, requires only a configuration file update with no code change or model retraining.
+
+The raw GLiNER predictions pass through a three-stage filtering pipeline in the Anonymization API before token substitution runs. The first stage is normalisation: spans with invalid character offsets, missing labels, or lengths below three characters are dropped. The second is low-quality filtering: spans below the 0.45 confidence threshold and spans whose normalised text matches an Italian stopword blocklist are removed. The blocklist targets words GLiNER occasionally misclassifies as named entities: common prepositions, articles, and domain-specific imperative verbs like \emph{ritorna} or \emph{risolvi}. The third stage deduplicates overlapping predictions: candidates are sorted by confidence then by span length, and a greedy pass discards any prediction whose character range overlaps an already-selected one. The output is a clean, non-overlapping, position-sorted list ready for substitution.
+
+\subsection{Deterministic Token Mapping and Ephemeral Context Storage}
+\label{subsec:impl_token_reinjection}
+
+Token generation follows a deterministic scheme: each detected entity is assigned a token of the form \texttt{<LABEL\_NNNN>}, where \texttt{LABEL} is the uppercase entity type (\texttt{PERSON}, \texttt{LOCATION}, \texttt{ORGANIZATION}, etc.) and \texttt{NNNN} is a zero-padded four-digit counter, incremented per label per context and starting from \texttt{0001}. A prompt containing two distinct person names therefore produces \texttt{<PERSON\_0001>} and \texttt{<PERSON\_0002>}, which the LLM can distinguish as separate entities even though neither token reveals the underlying name.
+
+Token substitution is applied right-to-left over the sorted list of entity spans. This ordering is critical for correctness: replacing a span near the end of the string does not shift the character positions of earlier spans, so each offset from the GLiNER output remains valid for the duration of the substitution loop. A left-to-right approach would require offset adjustment after each replacement, introducing complexity and potential for off-by-one errors.
+
+The resulting token-to-entity map is stored in Redis under the key \texttt{anon:context:\{contextId\}}, where \texttt{contextId} is a freshly generated UUID issued for the current request. The storage interface is defined by the \texttt{IAnonymizationContextStore} contract, implemented by \texttt{RedisAnonymizationContextStore}:
+
+\begin{lstlisting}[language=CSharp,caption={IAnonymizationContextStore contract}]
+public interface IAnonymizationContextStore
+{
+    Task Store(string contextId,
+               Dictionary<string, string> tokenMap);
+    Task<Dictionary<string, string>> Get(string contextId);
+    Task Append(string contextId,
+                Dictionary<string, string> newTokens);
+    Task<Dictionary<string, string>> Pop(string contextId);
+}
+\end{lstlisting}
+
+The \texttt{Pop} method is the critical operation for privacy enforcement: it reads the token map from Redis and \emph{atomically deletes} the context entry in a single operation. This one-time-use semantic ensures that the PII mapping is consumed and destroyed at the first deanonymisation call, which occurs inside \texttt{JobTools} immediately before business logic execution. Any subsequent call to \texttt{Pop} with the same \texttt{contextId} returns a not-found response, preventing replay attacks or residual data accumulation in the context store. No time-to-live (TTL) is currently set on context keys; they persist until consumed by \texttt{Pop} or until a Redis restart. In a production deployment, a conservative TTL (e.g., five minutes) should be applied to bound the exposure window in the event of a failed or abandoned request.
+
+The \texttt{Append} method supports multi-turn interactions: when a follow-up user message introduces a new named entity, the client calls \texttt{POST /anonymize-into-context} with the existing \texttt{contextId}, and the new token mappings are merged into the existing context without overwriting prior entries. This allows a single \texttt{contextId} to accumulate the full PII surface of a multi-turn conversation.
+
+% ==========================================
+\section{Exposing Business Operations via MCP}
+\label{sec:impl_mcp_tools}
+
+\subsection{C\# Attributes and Reflection for Tool Schema Generation}
+\label{subsec:impl_csharp_reflection}
+
+The MCP specification requires each registered tool to be accompanied by a JSON Schema describing its input parameters, including names, types, descriptions, and optionality. Writing and maintaining these schemas manually is error-prone and creates a risk of drift between the schema the model sees and the actual method signature. The \texttt{ModelContextProtocol.AspNetCore} library solves this by generating schemas automatically from C\# class and method annotations using runtime reflection.
+
+Tool classes are decorated with \texttt{[McpServerToolType]} at the class level and \texttt{[McpServerTool(Name = "...")]} at the method level. The library discovers all annotated methods at application startup, infers the parameter schema from the method's C\# parameter types and XML documentation comments, and registers the resulting tool descriptors with the MCP transport layer. The following excerpt illustrates the annotation pattern for the \texttt{ask\_antares} entry point:
+
+\begin{lstlisting}[language=CSharp,caption={MCP tool annotation on AntaresTools}]
+[McpServerToolType]
+public class AntaresTools
+{
+    [McpServerTool(Name = "ask_antares",
+        Description = "Semantic router for Antares AI. " +
+        "Pass the anonymised user request and the contextId.")]
+    public async Task<string> AskAntares(
+        string user_input,
+        string? context_id = null)
+    { ... }
+}
+\end{lstlisting}
+
+The \texttt{Description} property on \texttt{[McpServerTool]} is surfaced to the LLM as the tool's documentation in the function invocation schema. Clear, unambiguous descriptions are therefore a direct input to the routing quality: if the description of a sub-tool does not accurately convey its purpose, the model may route requests incorrectly. The descriptions used in the production configuration are written in English (matching the MCP schema convention) and use precise operational language: each sub-tool description specifies the input it expects, the entity type it resolves, and the relation type it traverses.
+
+Tool classes are registered with the ASP.NET Core dependency injection container as scoped services and declared to the MCP framework via \texttt{.WithTools<T>()}, which causes the framework to invoke reflection at startup and register the discovered schemas. All internal tool classes (\texttt{JobTools}, \texttt{DepartmentsTools}, \texttt{PersonTools}, \texttt{AssetTools}, \texttt{AbsenceTools}, \texttt{LookupTools}) are also registered as scoped services, allowing the MCP-exposed tool classes to receive them by constructor injection.
+
+\subsection{The \texttt{ask\_antares} Routing Tool}
+\label{subsec:impl_ask_antares}
+
+The \texttt{ask\_antares} method is the single entry point through which all client requests enter the trusted execution boundary. Its implementation proceeds in three phases: system prompt construction, Claude API invocation with function invocation enabled, and response extraction.
+
+The system prompt is constructed as a structured Italian-language message that establishes Claude's role and operational constraints. It identifies the model as the semantic routing layer of the Antares workforce management system, instructs it to select exactly one sub-tool from the enumerated list based on the user's intent, requires it to forward the \texttt{context\_id} parameter to the selected sub-tool unchanged, and prohibits it from inferring, revealing, or reconstructing any PII from the anonymised tokens in the user's prompt. The privacy constraint is stated explicitly: the model is instructed to treat tokens such as \texttt{<PERSON\_0001>} as opaque identifiers and to never attempt to deduce the identity they represent.
+
+The Claude API is invoked via the \texttt{Microsoft.Extensions.AI} abstraction layer using \texttt{IChatClient.GetResponseAsync()} with the \texttt{ChatOptions.UseFunctionInvocation = true} flag. This flag enables the function invocation loop: the client sends the system prompt, user message, and the tool schemas to the model; the model emits a structured tool call; the abstraction layer executes the corresponding C\# method; and the method's return value is fed back to the model for final response synthesis. The client then extracts \texttt{response.Text} as the tool's return value, which includes the hardcoded confirmation string produced by the invoked sub-tool.
+
+A retry mechanism handles the \texttt{overloaded\_error} response that the Claude API may return under high load. The implementation retries up to four times with exponential backoff starting at two seconds, doubling on each attempt (2\,s, 4\,s, 8\,s, 16\,s). After all retries are exhausted, the method returns an Italian-language error message to the client indicating that the service is temporarily unavailable. The retry sequence is implemented inline rather than using a general-purpose resilience library to keep the dependency surface minimal.
+
+\subsection{Strict Prompting for Privacy Enforcement}
+\label{subsec:impl_prompting}
+
+The system prompt is the primary mechanism for enforcing the privacy invariant at the LLM layer. Three constraints are embedded alongside the operational instructions.
+
+The model is prohibited from including real names, phone numbers, addresses, or any other identifying information in its response. The only content it may return is the confirmation string emitted by the selected sub-tool. Even if the model could infer entity identities from parametric knowledge, the prompt explicitly forbids their appearance in the output.
+
+Anonymised tokens must be preserved verbatim in any parameter the model extracts and forwards. If the user prompt contains \texttt{<PERSON\_0001>}, the model passes the literal string \texttt{<PERSON\_0001>} to the sub-tool, not a guessed or hallucinated name. This ensures the token reaches \texttt{JobTools} intact for deanonymisation.
+
+The prompt also explicitly frames the operational context as an enterprise business system with data protection obligations. Instruction-following models comply more reliably with privacy constraints when the prompt explains why they exist, even if that understanding is entirely prompt-derived.
+
+% ==========================================
+\section{Use Case Orchestration in \texttt{JobTools}}
+\label{sec:impl_jobtools}
+
+The \texttt{JobTools} class implements the high-level orchestration logic for the three business use cases. Each method follows the same five-step pattern: deanonymise the relevant parameter, resolve the caller's identity and required GUID lookups, execute the business logic via the Miorelli service layer, build and persist a full real-data report to a server-local log file, and return a hardcoded Italian confirmation string. The deanonymisation step is always the first action, ensuring that PII re-enters the system only at the start of trusted server-side execution.
+
+\subsection{Use Case A: Nearest Workers to a Cantiere}
+\label{subsec:impl_uca}
+
+Use~Case~A (\texttt{get\_nearest\_workers\_to\_cantiere}) finds the workers assigned to a named construction site and ranks them by proximity to the site's GPS coordinates within a configurable radius.
+
+The deanonymised cantiere name is used to resolve the target site from the caller's list of authorised cantieri. Resolution requires three prior lookups: the caller's identity (to establish the perimeter of authorised sites), the GUID of the \texttt{PULITO\_DA} relation type (to identify workers assigned to the site), and the GUID of the \texttt{SedePrincipale} item category (to filter cantieri by type). These GUIDs are tenant-specific constants in the Miorelli platform and are resolved at runtime via \texttt{LookupTools.GetRelationTypes} and \texttt{GetItemCategories}.
+
+Distance computation uses the Haversine formula, which calculates great-circle distance between two points on a sphere given their latitude and longitude in decimal degrees:
+
+\[
+d = 2r \arcsin\!\left(\sqrt{\sin^2\!\left(\frac{\Delta\phi}{2}\right) + \cos\phi_1\cos\phi_2\sin^2\!\left(\frac{\Delta\lambda}{2}\right)}\right)
+\]
+
+where $\phi$ denotes latitude, $\lambda$ denotes longitude, $r = 6{,}371$\,km is the mean Earth radius, and $d$ is the great-circle distance between the two points. The formula is applied in \texttt{PersonTools.CalculateDistanceAndRank}, a pure computation method with no service calls, which ranks a list of \texttt{MiorelliPerson} records by their distance from a reference point and optionally returns only the top-$N$ closest. Workers without registered coordinates are sorted to the end of the list rather than discarded, preserving the completeness of the result. A subsequent \texttt{FilterByRadiusKm} call removes workers whose distance exceeds the requested radius.
+
+The ranked list is partitioned into \emph{attivi} (active workers) and \emph{non attivi} (inactive workers, identified by the \texttt{IsActive} flag on \texttt{MiorelliPerson}) and written to a timestamped log file in the server's \texttt{logs/} directory. The log includes full names, phone numbers, distances in kilometres, and activity status. The confirmation string \emph{``Operazione completata con successo.''} is returned regardless of the number of workers found; the operational report is the authoritative output, not the LLM response.
+
+\subsection{Use Case B: Colleagues of a Person}
+\label{subsec:impl_ucb}
+
+Use~Case~B (\texttt{get\_colleagues\_of\_person}) identifies the direct colleagues of a named worker (those sharing at least one cantiere via the \texttt{PULITO\_DA} relation) and supplements this list with the five nearest non-colleagues, ranked by proximity to the target person's residential coordinates.
+
+The deanonymised person name is resolved to a \texttt{MiorelliPerson} record via \texttt{PersonTools.SearchPersonByName}, which performs a case-insensitive substring match across the full name field of the mock dataset. The direct colleague set is computed by \texttt{PersonTools.GetColleaguesOfPerson}: for each cantiere to which the target person is assigned, all \texttt{PULITO\_DA} relations are retrieved, and the union of the resulting person sets (minus the target person) constitutes the colleague set. Each \texttt{MiorelliColleague} record includes the shared cantieri, enabling the report to state not only who the colleagues are but which sites they share.
+
+The non-colleague pool is constructed by collecting all workers from all cantieri accessible to the caller, removing the target person and all identified colleagues. Haversine distances are computed from the target person's residential coordinates to each candidate, and the five closest are selected. Ranking by residential proximity is a deliberate design choice for the workforce management domain: in the context of substitute identification, proximity to the absent worker's habitual work area is a meaningful operational signal.
+
+\subsection{Use Case C: Holiday Request Analysis}
+\label{subsec:impl_ucc}
+
+Use~Case~C (\texttt{report\_holiday\_request}) is the most complex orchestration, combining an authorisation check with a per-cantiere absence analysis and substitute identification. It is invoked when a user requests a holiday ticket for a named worker.
+
+The first substantive step, after deanonymisation, is an authorisation gate. The system verifies that the caller (Paolo Ricci in the mock data, the hardcoded identity returned when the real identity service is unavailable) has a legitimate relationship with the named worker. Three authorisation paths are accepted: the caller manages the worker's cantiere via a \texttt{PULITO\_DA} perimeter (i.e., the worker appears in one of the cantieri the caller is authorised for), the caller is the worker's \texttt{RESPONSABILE\_DI\_RIFERIMENTO}, or the caller is the worker's \texttt{AUTORIZZATORE}. If none of these conditions holds, the method returns an authorisation failure message without processing the request further.
+
+For each cantiere to which the worker is assigned, the method constructs a per-cantiere absence report. The full worker pool for the cantiere is retrieved, and each worker's absence status for the current date is checked via \texttt{AbsenceTools.GetAbsencesForPerson} with the \texttt{UnavailabilityGenerated = true} filter. Workers with active absence tickets overlapping the current date are marked as unavailable. The remaining active workers constitute the available coverage pool for the cantiere.
+
+The substitute identification follows the same Haversine proximity logic as Use~Case~B, but applied to the geographic context of the cantiere rather than the target person's residence. Non-colleagues within 15\,km of the cantiere's coordinates who are not currently absent are ranked and presented as potential substitutes. The per-cantiere report includes absence category breakdown (FERIE vs.\ MALATTIA), the list of absent colleagues, and the ranked substitute pool. A consolidated log file is written to \texttt{logs/} and the confirmation string is returned to the client.
+
+% ==========================================
+\section{Backend Integration and Data Abstraction}
+\label{sec:impl_backend_integration}
+
+\subsection{The \texttt{IMiorelliService} Interface}
+\label{subsec:impl_miorelli_interface}
+
+All data access in the \texttt{JobTools} orchestration layer is performed through the \texttt{IMiorelliService} interface, which defines the complete data contract required by the business tools:
+
+\begin{lstlisting}[language=CSharp,caption={IMiorelliService interface (abridged)}]
+public interface IMiorelliService
+{
+    // Identity
+    Task<MiorelliCallerIdentity> GetCallerIdentityAsync(
+        string? username = null);
+
+    // Assets
+    Task<List<MiorelliCantiere>> GetAuthorizedCantieriAsync(
+        Guid personId, Guid? itemCategoryId = null);
+    Task<List<MiorelliRelation>> GetPeopleByRelationOnAssetAsync(
+        Guid assetId, Guid? relationTypeId = null);
+    Task<List<MiorelliCantiere>> GetAssetsNearCoordinatesAsync(
+        double latitude, double longitude,
+        double maxDistanceMeters);
+
+    // Persons
+    Task<MiorelliPerson?> GetPersonByIdAsync(Guid personId);
+    Task<List<MiorelliPerson>> SearchPersonByNameAsync(
+        string name);
+    Task<List<MiorelliColleague>> GetColleaguesOfPersonAsync(
+        Guid personId, Guid relationTypeId,
+        bool includeDetails = false);
+
+    // Absences
+    Task<List<MiorelliTicket>> GetAbsencesForPersonAsync(
+        Guid personId, long? category = null,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null);
+
+    // Lookups
+    Task<List<MiorelliRelationType>> GetRelationTypesAsync(
+        string? shortNameFilter = null);
+    Task<List<MiorelliItemCategory>> GetItemCategoriesAsync(
+        string? shortNameFilter = null);
+}
+\end{lstlisting}
+
+The interface was designed to mirror the expected schema of the real Miorelli REST API, informed by the API documentation available at the time of development. All method signatures use the internal DTO types (\texttt{MiorelliPerson}, \texttt{MiorelliCantiere}, \texttt{MiorelliRelation}, etc.) rather than API response types, ensuring that the mapping between the external API format and the internal representation is encapsulated in the concrete implementation and does not bleed into the tool layer.
+
+This design achieves a strict separation of concerns: \texttt{JobTools} expresses its data requirements through the interface contract, with no knowledge of where the data comes from or how it is formatted by the source. The concrete implementation (mock, stub, or the real generated client) is invisible to the orchestration logic.
+
+\subsection{The Stub/Mock Pattern}
+\label{subsec:impl_miorelli_stub}
+
+At the time of the internship, the real Miorelli tenant had not been provisioned for development access. Rather than blocking development on backend availability, the project adopted a stub/mock pattern that decouples the AI orchestration layer from the backend integration layer.
+
+\texttt{MiorelliServiceStub} implements \texttt{IMiorelliService} by throwing a \texttt{MiorelliClientNotAvailableException} on every method call:
+
+\begin{lstlisting}[language=CSharp,caption={MiorelliServiceStub structure}]
+public class MiorelliClientNotAvailableException : Exception
+{
+    public MiorelliClientNotAvailableException()
+        : base("Miorelli client unavailable. Using mock data.")
+    { }
+}
+
+public class MiorelliServiceStub : IMiorelliService
+{
+    public Task<MiorelliCallerIdentity> GetCallerIdentityAsync(
+        string? username = null)
+        => throw new MiorelliClientNotAvailableException();
+    // ... same for all other methods
+}
+\end{lstlisting}
+
+Each tool class that calls \texttt{IMiorelliService} wraps its calls in a \texttt{try/catch} that specifically catches \texttt{MiorelliClientNotAvailableException} and falls back to the corresponding method in \texttt{MiorelliMockDataProvider}, a static class containing realistic synthetic data for the Lombardy region. The use of a specific exception type (rather than a general \texttt{Exception}) ensures that unexpected errors from the real client propagate fatally rather than being silently absorbed by the fallback path.
+
+The mock dataset is designed to exercise the full complexity of the three use cases: ten persons with GPS coordinates derived from real Lombardy municipalities, three cantieri (Bergamo, Brescia, Mantova) with realistic addresses and coordinates, a set of \texttt{PULITO\_DA} relations that creates a non-trivial colleague graph, and five absence tickets with dates that produce partially absent cantiere coverage when Use~Case~C is evaluated. All entity GUIDs in the mock dataset are stable, deterministic values (e.g., \texttt{1111000N-0000-0000-0000-000000000000} for person $N$) so that test outputs are reproducible across runs.
+
+\subsection{NSwag Client Generation and the Migration Path}
+\label{subsec:impl_nswag_migration}
+
+The Anonymization API exposes its interface as an OpenAPI specification, served at \texttt{GET /swagger/api-docs.yaml} in development mode. This specification is the source of truth for the C\# clients generated in both the MCP server and the MCP client. NSwag~\cite{nswag2020} processes the YAML specification and produces a strongly typed C\# client class, \texttt{AnonymizationServiceClient.g.cs}, that wraps all three endpoints (\texttt{AnonymizeAsync}, \texttt{AnonymizeIntoContextAsync}, \texttt{DeanonymizeKnownAsync}) in awaitable methods with typed request and response objects. The generated file carries a \emph{do not edit} header; any change to the API surface is reflected by re-running \texttt{nswag run nswag.json} from the consuming project.
+
+Migrating from the mock Miorelli data to the real Miorelli production API requires three coordinated changes. First, the \texttt{AntaresMiorelliClient} is generated from the Miorelli OpenAPI specification using the same NSwag workflow used for the Anonymization API client. Second, a mapping layer is implemented that translates Miorelli API response types to the internal DTO types defined in the \texttt{IMiorelliService} contract. Third, the dependency injection registration in \texttt{program.cs} is updated from:
+
+\begin{lstlisting}[language=CSharp,caption={Switching from stub to real Miorelli client}]
+// Current (stub with mock fallback):
+builder.Services
+    .AddScoped<IMiorelliService, MiorelliServiceStub>();
+
+// After tenant provisioning:
+builder.Services
+    .AddScoped<IMiorelliService, AntaresMiorelliClient>();
+\end{lstlisting}
+
+No changes are required in any tool class (\texttt{JobTools}, \texttt{PersonTools}, \texttt{AssetTools}, \texttt{AbsenceTools}, \texttt{LookupTools}). The interface contract is the stable boundary; the implementation behind it is substitutable without affecting the orchestration logic. The tenant-specific GUIDs currently defined as compile-time constants in \texttt{MiorelliMockConstants} should be replaced with real values from the Miorelli admin panel, or loaded from a configuration file to avoid hardcoding values that differ between environments.

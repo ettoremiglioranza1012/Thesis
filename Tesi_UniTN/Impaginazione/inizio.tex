@@ -1,0 +1,84 @@
+
+\Universita{UNIVERSITY OF TRENTO}
+\CorsoDiLaurea{Master's Degree in Data Science}
+\AnnoAccademico{2025-2026}
+\Titolo{Secure LLM orchestration for \ enterprise workflows using the \ Model Context Protocol}
+\Relatore{Prof. Daniele Miorandi}
+\RelatoreLabel{Supervisor}
+\CandidatoLabel{Graduate Student}
+
+\Candidato{Ettore Miglioranza} 
+\Matricola{257311}
+\DataEsame{\today}
+\Logo{Impaginazione/logo_rosso.png}
+\LogoWidth{4.5cm} %optional, default: 3cm
+\LogoPosition{top}
+\LogoSfondo{Impaginazione/logo_bn.png}
+\opacitaSfondo{0.05}
+
+\begin{titlepage}
+    \newgeometry{left=3cm, right=3cm, bottom=2cm, top =3cm} 
+    \pagestyle{empty}
+    \makefrontpage
+    \restoregeometry
+\end{titlepage}
+
+
+\newpage
+\thispagestyle{empty}
+\mbox{}  % This ensures an empty page
+\newpage
+
+
+\frontmatter
+% dedica
+\null\vspace{\stretch{1}}
+\begin{flushright}
+    \textit{Dedica}
+\end{flushright}
+\vspace{\stretch{2}}\null
+
+%ringraziamenti
+\chapter*{Acknowledgments}
+
+%I would like to thank my supervisor, Prof. Daniele Miorandi, for his guidance and continuous support throughout this thesis work.
+
+
+\begin{abstract}
+Large language models (LLMs) have demonstrated cutting-edge capabilities in understanding intent and semantic routing, but their adoption in business workflows remains limited by stringent privacy and security requirements. This thesis investigates how LLM-based orchestration can be implemented in a real-world business context, whilst providing a formal guarantee that no personally identifiable information (PII) crosses the boundaries of an external model. The work focuses on a specific workforce management domain within the Antares ERP ecosystem, where natural language requests must be reliably mapped to operational actions, such as locating nearby workers on construction sites, identifying colleagues based on proximity, and validating absence cover and substitution chains. 
+
+The central research question is: how can an external LLM be integrated as a semantic router without exposing sensitive business data, whilst ensuring deterministic and verifiable execution of business tools? To answer this question, the thesis proposes a ‘privacy-by-design’ architecture based on the Model Context Protocol (MCP). The system enforces a strict separation between language understanding and data access through a reversible anonymisation pipeline: user requests are pseudonymised before reaching the model, routed by the LLM using only anonymised text, and de-anonymised exclusively on the server side at the time of tool execution. Entity detection is performed by a multilingual NER microservice based on GLiNER, chosen over rule-based alternatives such as Microsoft Presidio precisely because of its robustness in processing business inputs in Italian. Token-to-entity mappings are stored in a short-lived Redis context, ensuring that pseudonymisation is both ephemeral and fully reversible. The MCP server exposes schema-validated, typed tools to the model and enforces strict routing constraints, whilst a \texttt{.NET 10} client orchestrator manages the end-to-end request lifecycle. 
+
+The approach draws on the broader state of the art in privacy-preserving LLM infrastructure. In particular, OpenAI’s Privacy Filter (Apache 2.0, 2025), recently made open source, confirms that lightweight, on-premise NER models incorporated as pre-processing layers represent the emerging industry standard for PII containment. The key architectural contribution of this thesis relative to that reference model is \emph{reversibility}: whilst one-way encoding destroys the mapping between placeholders and entities, the token-based scheme proposed here preserves full operational correctness whilst allowing controlled de-anonymisation at the protocol boundary, a distinction relevant under Article 4.5 of the GDPR, which classifies such processing as pseudonymisation rather than anonymisation.  
+
+The thesis makes three concrete contributions: (1) a multi-service architecture that structurally isolates sensitive data from the LLM context, (2) a deterministic and reversible privacy layer based on token mapping that preserves the correctness of business logic throughout the entire request lifecycle, and (3) a validated set of realistic workforce management use cases demonstrating the effectiveness of the approach in a representative production environment. The validation confirms that the accuracy of semantic routing and NER performance on Italian-language inputs are sufficient for enterprise deployment and that no raw PII is observable within the boundaries of the tested LLM context. 
+
+This work positions MCP as a practical and applicable interface standard for enterprise AI orchestration and highlights the key engineering trade-off inherent in privacy by design: increased architectural complexity is the necessary cost for demonstrable privacy assurance, but it unlocks reliable and verifiable LLM-driven workflows without violating data protection constraints.
+
+\vspace{1em}
+\noindent\textbf{Keywords:} LLM orchestration, Model Context Protocol (MCP), privacy-by-design, PII pseudonymization, semantic routing, named entity recognition, GLiNER, enterprise AI security, GDPR compliance
+\end{abstract}
+
+\tableofcontents
+
+\mainmatter
+
+\input{capitoli/introduction}
+
+\input{capitoli/background}
+
+\input{capitoli/architecture}
+
+\input{capitoli/implementation}
+
+\input{capitoli/validation}
+
+\input{capitoli/discussion}
+
+\input{capitoli/conclusions}
+
+\printglossaries
+\addcontentsline{toc}{chapter}{Glossary}
+
+\printnomenclature
+\addcontentsline{toc}{chapter}{Nomenclature list}
