@@ -46,6 +46,23 @@ The goal is prose that is technically exact, easy to read quickly, and sounds li
 
 ---
 
+# Thesis Build
+
+The thesis compiles locally with **tectonic** via a uv-managed Python build script.
+
+```bash
+# From Tesi_UniTN/:
+uv run python build.py          # build PDF
+uv run python build.py --clean  # remove artefacts, then build
+uv run python build.py --open   # build and open PDF in Preview
+```
+
+`tectonic` handles all LaTeX and BibTeX passes automatically. If `tectonic` is missing: `brew install tectonic`.
+
+Images must be placed in `Tesi_UniTN/Immagini/` (capital I — case-sensitive on Overleaf's Linux host). Reference them as `\includegraphics{Immagini/filename}` (no extension needed).
+
+---
+
 # Thesis Project — LaTeX (Overleaf)
 
 Located in `Tesi_UniTN/`. Read these files in parallel alongside the internship documents:
