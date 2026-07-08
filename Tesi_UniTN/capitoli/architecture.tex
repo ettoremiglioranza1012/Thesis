@@ -1,7 +1,7 @@
 \chapter{System Architecture and Design}
 \label{ch:architecture}
 
-This chapter presents the architecture of Antares AI, a privacy-preserving LLM orchestration system for enterprise workforce management. The design is governed by a single non-negotiable invariant: \emph{no personally identifiable information crosses the LLM context boundary in cleartext}. Every architectural decision described here is a consequence of enforcing that invariant.
+This chapter presents the architecture of Antares AI, a privacy-preserving LLM orchestration system for enterprise workforce management. Chapter~\ref{ch:introduction} and Chapter~\ref{ch:background} set out the problem this architecture answers: an LLM has to route natural-language workforce requests without ever seeing the personal data those requests refer to. The design that follows is organised around one central invariant, no personally identifiable information crosses the LLM context boundary in cleartext, and most of the decisions described in this chapter follow from what it takes to hold that invariant in practice. Section~\ref{sec:arch_privacy_by_design} sets out the privacy-by-design principles that govern every subsequent decision. Section~\ref{sec:arch_antares_ecosystem} introduces the Antares/Miorelli domain and the constraints it places on the system. Section~\ref{sec:arch_requirements} translates those constraints into a traceable list of functional and non-functional requirements. Section~\ref{sec:arch_high_level} presents the four-service runtime architecture. Section~\ref{sec:arch_components} details the design of each component. Section~\ref{sec:arch_data_flow} traces a complete request through the system end to end.
 
 % ==========================================
 \section{Architectural Principles: Privacy-by-Design}
@@ -11,9 +11,9 @@ Privacy by design, formalised by Cavoukian~\cite{cavoukian2009privacy} and later
 
 Three of Cavoukian's principles shape the system most directly.
 
-\textbf{Privacy as the default.} Anonymisation of user requests before LLM transmission is the only supported operational path. A client that skips the anonymisation step sends an unprocessed prompt, but the server system prompt still instructs the model to treat input as pseudonymised tokens; bypassing anonymisation is detectable and requires an explicit decision. There is no configuration flag to disable privacy enforcement.
+\textbf{Privacy as the default.} Anonymisation of user requests before LLM transmission is the only supported operational path. A client that skips the anonymisation step sends an unprocessed prompt, but the server system prompt still instructs the model to treat input as pseudonymised tokens; bypassing anonymisation is detectable and requires an explicit decision, not an oversight. Nothing in the system's configuration surface offers a way to switch privacy enforcement off.
 
-\textbf{Privacy embedded into design.} PII isolation is not achieved through audit logging, access controls, or post-hoc output redaction. It is structural: by placing the anonymisation service at the architectural boundary, PII is physically absent from the data that crosses it. The model cannot leak what it never received.
+\textbf{Privacy embedded into design.} PII isolation is not achieved through audit logging, access controls, or post-hoc output redaction. It is structural: by placing the anonymisation service at the architectural boundary, PII is physically absent from the data that crosses it, so there is nothing for the model to leak in the first place.
 
 \textbf{End-to-end security.} The token-to-entity mapping is stored in an ephemeral, session-scoped Redis context and consumed exactly once during server-side deanonymisation. No component persists PII beyond the minimum lifetime required for a single business operation. Operational reports written to disk by the \texttt{JobTools} layer stay on server-local storage and are never sent to the client.
 
@@ -23,11 +23,21 @@ Together these constraints define the \emph{architectural invariant}: PII may ex
 \section{The Antares AI Ecosystem}
 \label{sec:arch_antares_ecosystem}
 
-Antares AI was developed within the Antares/Miorelli ecosystem, an ERP platform for workforce management used in Italian construction and facility management. The platform manages personnel assignments to job sites (\emph{cantieri}), tracks absence and leave requests, and maintains the hierarchical relationships between workers and managers. Users currently interact via structured web interfaces; Antares AI enables the same operations through natural language, routing each request to the correct business tool automatically.
+Antares AI was developed within the Antares/Miorelli ecosystem, an ERP platform for workforce management used in the Italian facility management sector. The platform manages personnel assignments to job sites (\emph{cantieri}), tracks absence and leave requests, and maintains the hierarchical relationships between workers and managers. Users currently interact via structured web interfaces; Antares AI enables the same operations through natural language, routing each request to the correct business tool automatically.
 
-The domain is demanding on privacy and correctness for concrete reasons. The data is personnel-sensitive by nature: names, phone numbers, residential coordinates, absence records, and employment relationships are all PII under the GDPR. The user base is multilingual (requests arrive in Italian, regional dialects, or a mix), which ruled out recogniser-based NER tools designed for English. Most critically, the operational context requires accurate results: a holiday request analysis that produces an incomplete result is operationally harmful, not just inconvenient, because it may leave a construction site under-staffed. The system must preserve full business logic accuracy even when anonymising inputs.
+The domain is demanding on privacy and correctness for concrete reasons. The data is personnel-sensitive by nature: names, phone numbers, residential coordinates, absence records, and employment relationships are all PII under the GDPR. The user base is multilingual (requests arrive in Italian, regional dialects, or a mix), which ruled out recogniser-based NER tools designed for English. Most critically, the operational context requires accurate results: a holiday request analysis that produces an incomplete result is operationally harmful, not just inconvenient, because it may leave a client site under-staffed. The system must preserve full business logic accuracy even when anonymising inputs.
 
-Workforce operations are structured around three core entity types: \emph{persone} (workers), \emph{cantieri} (construction sites), and \emph{ticket} (absence and leave records). Relations are typed: \texttt{PULITO\_DA} links a worker to their assigned sites, \texttt{RESPONSABILE\_DI\_RIFERIMENTO} identifies a worker's manager, and \texttt{AUTORIZZATORE} identifies the person authorised to approve leave. These entity types and relation names appear in natural language requests and define the PII surface the anonymisation pipeline must cover.
+Workforce operations are structured around three core entity types: \emph{persone} (workers), \emph{cantieri} (client sites), and \emph{ticket} (absence and leave records). Relations are typed: \texttt{PULITO\_DA} links a worker to their assigned sites, \texttt{RESPONSABILE\_DI\_RIFERIMENTO} identifies a worker's manager, and \texttt{AUTORIZZATORE} identifies the person authorised to approve leave. These entity types and relation names appear in natural language requests and define the PII surface the anonymisation pipeline must cover.
+
+% ==========================================
+\section{Functional and Non-Functional Requirements}
+\label{sec:arch_requirements}
+
+The principles and domain constraints introduced above translate into a concrete set of requirements the architecture must satisfy. This section makes them explicit and traceable, without repeating the discussion already given in Sections~\ref{sec:arch_privacy_by_design} and~\ref{sec:arch_antares_ecosystem}.
+
+\textbf{Functional requirements} follow directly from the three use cases the system supports, each one a concrete operation a dispatcher or site manager already performs by hand. Given a named client site, the architecture has to find the nearest available workers within a configurable radius and rank them by distance (Use Case~A, traced in detail in Section~\ref{sec:arch_data_flow}). Given a worker's name, it has to identify that worker's direct colleagues and surface a ranked pool of nearby substitutes (Use Case~B, Section~\ref{subsec:impl_ucb}). Given a holiday request, it has to resolve the full chain end to end: verify the requester's authorisation, determine which colleagues are absent on the relevant dates, and identify who is available to cover (Use Case~C, Section~\ref{subsec:impl_ucc}).
+
+\textbf{Non-functional requirements} follow from the domain constraints described in Section~\ref{sec:arch_antares_ecosystem}, and each one is really a boundary condition on the functional requirements above rather than an independent property. The privacy invariant from Section~\ref{sec:arch_privacy_by_design} sets the hard limit: no PII may cross the LLM context boundary in cleartext, under any request pattern. Operational accuracy sets a second one, in the opposite direction, since a routing or entity-resolution error introduced by the privacy layer is not an acceptable trade-off when an incomplete result can leave a client site under-staffed. Multilingual support is the third: the system has to handle Italian as a native language, not as an adaptation of an English-first pipeline, given how the actual user base writes.
 
 % ==========================================
 \section{High-Level System Architecture}
@@ -37,7 +47,7 @@ Antares AI comprises four cooperating runtime services, each with a distinct res
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=\textwidth]{Immagini/schema_masking}
+    \includegraphics[width=\textwidth]{Immagini/antares_ai_secure_flow_corrected}
     \caption{Runtime architecture of Antares AI. The client anonymises the user prompt before crossing the MCP boundary. The MCP server routes the anonymised request via Claude and executes the selected business tool server-side, where PII is restored from the Redis context. The client receives only a hardcoded confirmation string.}
     \label{fig:runtime_flow}
 \end{figure}
@@ -73,7 +83,7 @@ The architectural invariant (no PII crosses the MCP boundary) is enforced at the
 \subsection{The MCP Client Orchestrator}
 \label{subsec:arch_mcp_client_orchestrator}
 
-The MCP client (\texttt{Antares\_AI\_McpClient}) is a .NET~10 console application that orchestrates the end-to-end request lifecycle. In the current system it serves as both the reference client implementation and the integration test harness for the three use case scenarios.
+The MCP client (\texttt{Antares\_AI\_McpClient}) is a .NET~10~\cite{dotnet10} console application that orchestrates the end-to-end request lifecycle. In the current system it serves as both the reference client implementation and the integration test harness for the three use case scenarios.
 
 Its responsibilities are deliberately minimal. It constructs a natural language prompt, submits it to the Anonymization API, and then calls \texttt{ask\_antares} on the MCP server with the anonymised prompt and \texttt{contextId}. The client performs no business logic and holds no sensitive data; it can't observe PII because it never calls a deanonymisation endpoint or touches the Redis context.
 
@@ -120,7 +130,7 @@ The data access layer is abstracted behind \texttt{IMiorelliService}. The curren
 \section{Data Flow and Lifecycle of a Request}
 \label{sec:arch_data_flow}
 
-This section traces a user request from natural language prompt to confirmation response. Use Case~A (finding the nearest available workers to a named construction site) serves as the concrete example.
+This section traces a user request from natural language prompt to confirmation response. Use Case~A (finding the nearest available workers to a named client site) serves as the concrete example.
 
 \subsection{Tokenisation and Ephemeral Context Storage}
 \label{subsec:arch_tokenization_redis}
