@@ -22,6 +22,7 @@
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+*.otf
 
 # Python
 __pycache__/

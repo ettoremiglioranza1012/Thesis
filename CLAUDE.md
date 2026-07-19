@@ -46,6 +46,38 @@ The goal is prose that is technically exact, easy to read quickly, and sounds li
 
 ---
 
+# Thesis Writing Process — Sourcing, Citations, Verification
+
+This process applies every time a new section or paragraph is drafted, not just at chapter start.
+
+## Before writing a section
+
+1. Read `Tesi_UniTN/biblio.bib` and any references already surfaced in the current conversation/thinking chain. List which existing entries are relevant to the section about to be written, and reuse them before adding new ones.
+2. Identify claims in the planned section that need external support and are not yet covered by an existing entry. For each one, search the web for one or two references specific to that exact paragraph's claim, not generic background sources. Prefer primary sources (the original paper, spec, or standard) over secondary summaries.
+3. Add any new reference to `biblio.bib` with a complete, correct entry before citing it.
+
+## Citation density
+
+This is a master's thesis: citation density must be high. Any non-trivial factual claim, comparison, or design rationale that isn't original to this project's own work should carry a citation. Err toward more citations rather than fewer.
+
+## Post-write citation verification
+
+After a paragraph is drafted, every citation in it must be independently verified back to its source before the paragraph is considered done: does the cited work actually exist, does it say what the paragraph claims it says, and is the citation key correctly formatted in `biblio.bib`. Run this verification as a separate pass (a distinct agent invocation), not as a self-check by the same pass that wrote the prose, so fabricated or misattributed citations get caught rather than rubber-stamped.
+
+## Fixing a flagged citation: check every chapter, not just the current one
+
+Bib keys get reused across chapters that were already written and reviewed in earlier sessions. If verification flags a `biblio.bib` entry (wrong year, wrong author, wrong field), grep all of `capitoli/*.tex` for that citation key before editing it — fix the entry once, but confirm every `\cite{}` usage across the whole thesis still matches the corrected entry, not just the usage in the section currently being drafted.
+
+## Chapter-opening paragraph
+
+The first time a section is drafted in a chapter that still has no prose (only `\chapter{}` and section skeletons), also write the short unsectioned roadmap paragraph that follows `\chapter{}`: state the chapter's premise and name what each section covers, in the style already used in the chapters that have this (e.g. `architecture.tex`, `background.tex`). Don't leave a chapter's first drafted section to open cold with no framing.
+
+## Technical depth — pseudocode over language-specific code
+
+This is a thesis, not documentation. Do not reproduce actual C# or Python syntax, real method signatures, or verbatim code blocks in chapter prose. Describe algorithms and control flow in language-agnostic pseudocode or plain prose instead, reserving concrete syntax for the rare case where the exact syntax itself is the point being made.
+
+---
+
 # Thesis Build
 
 The thesis compiles locally with **tectonic** via a uv-managed Python build script.
