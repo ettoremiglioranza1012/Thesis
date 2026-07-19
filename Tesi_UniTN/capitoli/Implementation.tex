@@ -1,75 +1,155 @@
 \chapter{Implementation Details}
 \label{ch:implementation}
 
-% Write your text here introducing the chapter's scope: how the architectural invariants from Chapter 3 are realised in code
+Chapter~\ref{ch:architecture} defined the architectural invariant that governs Antares AI: no personally identifiable information crosses the LLM context boundary in cleartext. This chapter shows how that invariant is realised in running code. Section~\ref{sec:impl_tech_stack} describes the technology stack and the reasoning behind splitting the system across two language ecosystems. Section~\ref{sec:impl_anonymization_pipeline} covers the two implementation phases of the reversible anonymisation pipeline, from an early Presidio-based prototype to the GLiNER-based system in production. Section~\ref{sec:impl_mcp_tools} details how business operations are exposed to Claude as MCP tools. Section~\ref{sec:impl_jobtools} describes the orchestration logic behind the three use cases. Section~\ref{sec:impl_backend_integration} closes the chapter with the abstraction layer that separates business logic from the Miorelli backend it currently mocks.
 
 % ==========================================
 \section{Technology Stack and Development Environment}
 \label{sec:impl_tech_stack}
-% Write your text here describing the two-ecosystem choice (C#/.NET 10 vs Python/FastAPI), Redis as infrastructure dependency, and dependency management conventions
+
+Antares AI is split across two language ecosystems. The MCP server, the MCP client, and the Anonymisation Service are all built on .NET~10 with ASP.NET Core~\cite{dotnet10}. The GLiNER NER microservice is built on Python with FastAPI~\cite{fastapi2018}, served by Uvicorn. This is not an accident of tooling preference. GLiNER is a HuggingFace \texttt{transformers}-based model; its inference stack, tokenisers, and model-loading utilities are Python-native, and no equivalent stable interface exists on .NET. Everything else in the system, by contrast, benefits from the strong typing and reflection facilities of C\#: the MCP server generates its tool schemas from C\# attributes, and the Anthropic and Model Context Protocol SDKs used to call Claude and expose tools are both first-class .NET libraries. Splitting a system along the boundary where a specific runtime is genuinely the best fit for a specific responsibility, rather than forcing one language across every service, is standard practice in microservice design~\cite{newman2021building}; here that boundary falls exactly on the one component that does machine learning inference.
+
+Redis~\cite{redis2009} is the one piece of infrastructure shared, indirectly, across the ecosystem split. It holds no application code and is reachable only from the Anonymisation Service, which uses it to store the token-to-entity mapping generated for each anonymisation context. Because Redis is a plain key-value store reached over the network rather than a shared library or a shared database schema, the two ecosystems remain fully decoupled at the code level: the GLiNER service has no knowledge that Redis exists, and the C\# services never touch it directly except through the \texttt{IAnonymizationContextStore} contract described in Section~\ref{subsec:impl_token_reinjection}.
+
+Dependency management follows each ecosystem's own convention rather than a project-wide standard. The three .NET projects declare their packages in \texttt{.csproj} files, and \texttt{dotnet restore} runs automatically on build, so no separate install step is needed. The GLiNER Service declares its dependencies in \texttt{pyproject.toml} and uses \texttt{uv}~\cite{astral2024uv} for resolution and environment management; \texttt{uv sync}, invoked automatically by \texttt{uv run}, resolves and installs everything on first run. Both conventions share the same underlying goal: a developer should be able to clone a service and run it without a manual dependency-installation step. The one point where the two ecosystems talk to each other in generated code, rather than over HTTP, is NSwag~\cite{nswag2015}, which reads the Anonymisation Service's OpenAPI specification and generates a typed C\# client consumed by both the MCP server and the MCP client.
 
 % ==========================================
 \section{The Reversible Anonymisation Pipeline}
 \label{sec:impl_anonymization_pipeline}
-% Write your text here introducing the pipeline's two implementation phases
+
+The anonymisation pipeline went through two implementation phases. The first, built on Microsoft Presidio, was designed before any concrete use case existed and did not survive contact with real requests. The second, built around GLiNER, replaced it once actual Italian business prompts exposed where the first version broke. Both phases share the same downstream requirement: whatever detects the entities, the resulting token-to-value mapping has to be stored somewhere the server can reach and the client cannot, which is what Section~\ref{subsec:impl_token_reinjection} describes.
 
 \subsection{Early Approach: Microsoft Presidio and its Limitations}
 \label{subsec:impl_presidio}
-% Write your text here describing the initial Presidio-based implementation and why its recall on Italian business text proved insufficient
+
+Presidio~\cite{microsoft2018presidio} was the first detection engine integrated into the anonymisation service, chosen during the architecture design phase for the reasons given in Section~\ref{subsec:background_presidio_gliner}: it is the leading open-source PII detection framework, its recognisers are predictable, and it runs entirely on local infrastructure with no external inference dependency. This choice was made before the company had supplied the three concrete use cases the system would eventually implement, so it was necessarily a decision made on general merit rather than on measured performance against real inputs.
+
+Once the use cases arrived, the gap became apparent quickly. Presidio's recognisers are pattern- and rule-based, tuned against English-language, general-purpose PII, and neither the domain vocabulary (\emph{cantiere}, \emph{PULITO\_DA}, \emph{Capocantiere}) nor the register of the incoming prompts, informal spoken Italian with names embedded in operational phrasing rather than isolated in structured fields, matched what those recognisers were built to catch. Entities that a human would identify immediately, a person's name mid-sentence in a holiday request, were silently missed rather than flagged with low confidence. Presidio's recognisers do carry a per-pattern confidence score, but that score is a fixed value the recogniser's author assigns to a specific regular expression or context rule, not something inferred from the input; if no pattern exists for a given entity type or phrasing, there is no partial match and no score to threshold, only silence. Extending Presidio's coverage would have meant hand-writing new recognisers for each entity type and each way it could appear in an Italian operational sentence, which does not scale to the variability of real user input. This is the same structural limitation described abstractly in Section~\ref{subsec:background_presidio_gliner}; here it surfaced as a concrete recall failure on the project's own test prompts, not as a theoretical concern.
 
 \subsection{The Pivot to GLiNER for Multilingual Italian NER}
 \label{subsec:impl_gliner_pivot}
-% Write your text here describing the GLiNER-based redesign, model selection, label configuration, and the three-stage filtering pipeline
+
+The anonymisation module was redesigned around GLiNER~\cite{zaratiana2023gliner}, a zero-shot NER model that accepts an arbitrary label set at inference time instead of a fixed, pre-trained schema. The deployed checkpoint, \texttt{urchade/gliner\_multi-v2.1}~\cite{zaratiana2024glinermultiv21}, is trained for multilingual text and requires no fine-tuning to work on Italian, which directly answers the failure mode described above: entity types are configured, not hand-coded per recogniser.
+
+The GLiNER Service exposes a single \texttt{/analyze} endpoint that accepts a text string, a label list, a confidence threshold, and a language hint, and returns entity spans with their positions and scores. The default label set covers eight categories: person, organization, location, address, email, phone number, date, and time. In production, the Anonymisation Service calls this endpoint with a threshold of 0.45, set during initial configuration and left unchanged rather than arrived at through a systematic sweep. The value leans permissive by design: a missed entity is a privacy failure, while a spurious one only costs a minor, correctable annoyance in the reconstructed text, so erring toward recall over precision is the safer default in this specific asymmetry.
+
+Raw GLiNER predictions are not returned to the caller directly. They pass through a three-stage filtering pipeline first. The normalisation stage discards any prediction whose offsets fall outside the source text or whose label is empty, and reconstructs the entity's text from the source string when it is missing from the raw prediction. The quality-filtering stage discards any entity below the confidence threshold, shorter than a minimum span length of three characters, or matching an Italian stopword drawn from a blocklist built specifically for this project's operational vocabulary (words such as \emph{lista}, \emph{risolvi}, \emph{internamente}, terms that recur in the imperative, instruction-like phrasing of the system's own prompts and that GLiNER occasionally mistakes for entities). The deduplication stage resolves overlapping spans, such as \emph{Giulia} and \emph{Giulia Conti} both being flagged for the same text, by sorting candidates by score and then by span length, greedily keeping the best non-overlapping set, and restoring position order at the end. Each stage narrows recall in favour of precision only after the model has already been configured to favour recall, so the net effect is a low false-negative rate on real entities without the flood of false positives an untuned threshold would produce.
 
 \subsection{Deterministic Token Mapping and Ephemeral Context Storage}
 \label{subsec:impl_token_reinjection}
-% Write your text here describing the token generation scheme, right-to-left substitution, and the Redis-backed IAnonymizationContextStore contract
+
+Once GLiNER (or, previously, Presidio) has located an entity, the Anonymisation Service replaces it with a token of the form \texttt{<LABEL\_NNNN>}: the entity's label in upper case, followed by a zero-padded four-digit counter scoped to that label within the current context. A prompt containing two distinct people therefore produces \texttt{<PERSON\_0001>} and \texttt{<PERSON\_0002>}, not two copies of the same token, which preserves the distinction between the two individuals through every step of the pipeline that follows, including the LLM's own reasoning about the request.
+
+Substitution happens right to left: entities are sorted by their start offset, then replaced in the source text starting from the last one. This ordering is necessary because entity spans and their replacement tokens are rarely the same length; replacing an earlier entity first would shift the character offsets of every entity after it, corrupting the positions already computed by the detection stage. Processing from the end of the string backward means every substitution happens before the offsets of anything earlier in the text are touched.
+
+The resulting token-to-value mapping is written to Redis~\cite{redis2009} under a newly generated context identifier, through a narrow contract, \texttt{IAnonymizationContextStore}, with four operations: \texttt{Store} writes a new mapping, \texttt{Get} reads one without removing it, \texttt{Append} merges new tokens into an existing context for multi-turn sessions, and \texttt{Pop} reads and deletes the mapping in the same operation. Server-side deanonymisation always uses \texttt{Pop}, not \texttt{Get}, so a context can be consumed exactly once. This is a direct implementation of the end-to-end security principle from Chapter~\ref{ch:architecture}: the mapping does not simply expire eventually, it stops existing the instant it has served its one legitimate purpose.
 
 % ==========================================
 \section{Exposing Business Operations via MCP}
 \label{sec:impl_mcp_tools}
 
+Section~\ref{subsec:background_mcp_standardization} described MCP's three server-exposed primitives in the abstract; this section shows how the MCP server, \texttt{Antares\_AI\_McpServer}, turns ordinary C\# classes into the \emph{tools} primitive Claude calls. Section~\ref{subsec:impl_csharp_reflection} covers schema generation, Section~\ref{subsec:impl_ask_antares} covers the single entry-point tool every use case goes through, and Section~\ref{subsec:impl_prompting} covers how that entry point's system prompt enforces the privacy invariant at the one place the model's behaviour cannot be checked by a type system.
+
 \subsection{C\# Attributes and Reflection for Tool Schema Generation}
 \label{subsec:impl_csharp_reflection}
-% Write your text here describing MCP schema generation via reflection and the [McpServerToolType]/[McpServerTool] annotation pattern
+
+Every class that exposes an MCP tool is decorated with \texttt{[McpServerToolType]}, and every method meant to be callable by Claude carries \texttt{[McpServerTool(Name = "...")]}. The \texttt{ModelContextProtocol.AspNetCore} package reads these attributes through reflection at startup and builds the JSON Schema tool definitions~\cite{anthropic2024mcp} that MCP requires, one schema per annotated method, derived from the method's own parameter types and names. A developer adding a new business operation writes an ordinary C\# method and two attributes; the tool schema, its exposure over HTTP/SSE, and its registration with Claude's function-calling interface all follow from that annotation without a separate schema definition to keep in sync by hand.
+
+Only two classes, \texttt{AntaresTools} and \texttt{JobTools}, are registered as MCP tool types via \texttt{.WithTools<T>()} in \texttt{program.cs}. The remaining tool classes are registered only as ordinary scoped services, injectable into \texttt{JobTools} but invisible to Claude:
+\begin{itemize}
+\item \texttt{DepartmentsTools}
+\item \texttt{IdentityTools}
+\item \texttt{AssetTools}
+\item \texttt{PersonTools}
+\item \texttt{AbsenceTools}
+\item \texttt{LookupTools}
+\end{itemize}
+This is a deliberate narrowing of the model's reachable surface, consistent with the first architectural property named in Section~\ref{subsec:background_tool_calling}: bounding the model's agency by exposing only business-level operations while keeping data access inside deterministic code that the model never calls directly.
 
 \subsection{The \texttt{ask\_antares} Routing Tool}
 \label{subsec:impl_ask_antares}
-% Write your text here describing the system prompt construction, Claude API invocation with function calling, and the retry mechanism
+
+\texttt{AntaresTools.AskAntares} is the only tool the MCP client ever calls. It takes two parameters, \texttt{user\_input} (the anonymised prompt, which may contain tokens such as \texttt{<PERSON\_0001>}) and an optional \texttt{context\_id} (the anonymisation session identifier, forwarded so that sub-tools can trigger server-side deanonymisation later in the call chain). Internally it builds an Italian-language system prompt that casts Claude in a single role: a semantic router that must pick exactly one of the five sub-tools available to it, forward \texttt{context\_id} unchanged, never restate or reveal PII, and always return the tool's own hardcoded confirmation string rather than a freeform summary of the data it touched. It then calls \texttt{IChatClient.GetResponseAsync()}, the .NET binding for Claude's schema-driven tool-use contract~\cite{anthropic2024tooluse}, with function invocation enabled and the sub-tool list attached, and returns Claude's response text unmodified.
+
+The five sub-tools Claude can select from are:
+\begin{itemize}
+\item \texttt{GetDepartments}
+\item \texttt{GetDepartement}
+\item \texttt{GetNearestWorkersToCantiere}
+\item \texttt{GetColleaguesOfPerson}
+\item \texttt{ReportHolidayRequest}
+\end{itemize}
+The first two are leftovers from an early prototyping phase; the latter three are the three use cases this thesis covers in Chapter~\ref{ch:usecases}. Claude's role stops at selecting one of these five names and extracting the parameters to call it with. Everything downstream, deanonymisation, GUID resolution, ranking, report generation, happens inside \texttt{JobTools}, in code the model never executes and cannot see the output of beyond the final confirmation string.
+
+Calls to the Claude API can fail transiently under load. \texttt{AskAntares} retries on an \texttt{overloaded\_error} response up to four times with exponential backoff (2, 4, then 8 seconds between attempts)~\cite{brooker2015backoff}, and only after all four attempts fail does it return a hardcoded Italian error string to the caller. This bounds how long a single request can block on a transient provider-side failure without silently dropping it after the first error.
 
 \subsection{Strict Prompting for Privacy Enforcement}
 \label{subsec:impl_prompting}
-% Write your text here describing the three privacy constraints embedded in the system prompt
+
+The system prompt inside \texttt{AskAntares} is the one point in the architecture where privacy enforcement is a matter of instruction rather than structural guarantee, and it is worth being explicit about why that gap exists. Every component upstream of Claude, the anonymisation pipeline, the token substitution, the Redis-backed context store, structurally prevents PII from reaching the model, per the privacy-by-design argument of Section~\ref{sec:arch_privacy_by_design}. Claude itself, however, is not code the project controls; it can only be instructed, not verified line by line the way \texttt{JobTools} can. The system prompt therefore embeds three explicit constraints: keep any anonymised token exactly as received rather than paraphrasing or translating it, never introduce a name, phone number, or address that was not already present in the input, and always forward \texttt{context\_id} to whichever sub-tool is selected so that server-side deanonymisation can proceed.
+
+These constraints are a mitigation, not a proof. A model that ignored its system prompt entirely could in principle violate all three, and the tool-result feedback loop this system relies on is the same one identified as the primary attack surface for indirect prompt injection~\cite{greshake2023not} in Section~\ref{subsec:background_mcp_security}. \texttt{AskAntares} returns Claude's response text as-is; nothing strips or checks it afterward, so a model that decided to fabricate or restate PII in its own words would not be caught at that boundary. What actually limits the damage is upstream of the prompt entirely: Claude never has real PII in its context to leak in the first place. \texttt{JobTools} deanonymises parameters and queries real data only after Claude has already selected a tool and returned its arguments; the sub-tool's return value back to Claude is always the same hardcoded success string, never the report it just generated, and that report, containing real names and phone numbers, is written to a server-local log file Claude has no access to. A misbehaving model has no sensitive data available to misuse, regardless of what the system prompt tells it to do with data it was never given.
 
 % ==========================================
 \section{Use Case Orchestration in \texttt{JobTools}}
 \label{sec:impl_jobtools}
-% Write your text here describing the shared five-step pattern followed by each use case method
+
+The three sub-tools Claude can route to, described in Section~\ref{subsec:impl_ask_antares}, all live in \texttt{JobTools} and all follow the same five-step shape. First, deanonymise whichever natural-language parameter Claude extracted, a person's name or a cantiere's name, via \texttt{/deanonymize-known}; if \texttt{context\_id} is null or the call fails, the parameter passes through unchanged rather than blocking the request, so the tool degrades gracefully when anonymisation was not used upstream. Second, resolve the relation-type and category GUIDs the operation needs, since the Miorelli API addresses everything by GUID rather than by name. Third, query the lower-level Miorelli tools to assemble the relevant dataset, scoped to whichever cantieri the caller is authorised to see. Fourth, apply the use case's actual business logic: ranking, an authorisation check, or absence cross-referencing. The order of steps three and four is not fixed across all three use cases: Use Case C, described in Section~\ref{subsec:impl_ucc}, runs its authorisation check before assembling the main dataset rather than after, since there is no reason to query absence data for a request the caller was never entitled to make. Fifth, write a full report containing the real, deanonymised data to a server-local log file and return the same hardcoded Italian confirmation string regardless of what the report contains.
+
+Steps one and five are where the architectural invariant from Chapter~\ref{ch:architecture} is enforced in practice, not just steps two through four where the actual business logic happens. Step one is the only place real data re-enters the system after anonymisation; step five is the only place it leaves again, and it leaves toward disk, never back toward Claude or the client.
 
 \subsection{Use Case A: Nearest Workers to a Cantiere}
 \label{subsec:impl_uca}
-% Write your text here describing cantiere resolution, Haversine distance ranking, and report generation for get_nearest_workers_to_cantiere
+
+\texttt{GetNearestWorkersToCantiere} takes a cantiere name and an optional search radius (15\,km by default). After deanonymising the name, it resolves the caller's identity, the \texttt{PULITO\_DA} relation type, and the \texttt{SedePrincipale} item category, then calls \texttt{GetAuthorizedCantieri()} and matches the deanonymised name against the caller's authorised sites. Once the target cantiere is found, \texttt{GetPeopleByRelationOnAsset} returns every worker linked to it through \texttt{PULITO\_DA}, and each worker's details, including their residential coordinates, are fetched individually.
+
+Ranking those workers by distance needs no additional service call, only the Haversine formula~\cite{sinnott1984haversine}, which gives the great-circle distance between two points on a sphere from their latitude and longitude. \texttt{CalculateDistanceAndRank} implements this step directly. At the scale of workers travelling to a single cantiere, a few to a few dozen kilometres, the curvature of the Earth is not negligible in the way a flat-plane distance approximation would assume, so the spherical formula is the correct choice even though the search radius is small. Workers with no coordinates on file are sorted last rather than excluded, and \texttt{FilterByRadiusKm} then drops anyone outside the requested radius. The result is split into \emph{Attivi} and \emph{NonAttivi} before the full report, names, phone numbers, and computed distances, is logged. The report generation also covers three edge cases, each producing a distinct log entry: the deanonymised name matches no known cantiere, neither the cantiere nor the associated service is recognised, or the cantiere is recognised but falls outside the caller's own authorised perimeter. The response Claude and the client receive is the same regardless of which branch fired.
 
 \subsection{Use Case B: Colleagues of a Person}
 \label{subsec:impl_ucb}
-% Write your text here describing colleague resolution and the non-colleague proximity ranking for get_colleagues_of_person
+
+\texttt{GetColleaguesOfPerson} answers two different questions about the same deanonymised person in a single call: who their colleagues are, and who else works nearby without being one. After resolving the person by name, \texttt{GetColleaguesOfPerson} on the Miorelli side returns everyone who shares at least one cantiere with them under the \texttt{PULITO\_DA} relation, which is a relational query, not a spatial one. The method then scans every cantiere the caller is authorised to see and collects workers who do \emph{not} share any site with the target person, that is, everyone the previous step did not already return. \texttt{CalculateDistanceAndRank}, the same routine used in Section~\ref{subsec:impl_uca}, ranks that non-colleague pool by distance from the person's residence, and only the closest five are kept. The report logs both lists, direct colleagues and the five nearest non-colleagues, before returning the hardcoded confirmation string.
 
 \subsection{Use Case C: Holiday Request Analysis}
 \label{subsec:impl_ucc}
-% Write your text here describing the authorisation gate, per-cantiere absence analysis, and substitute identification for report_holiday_request
+
+\texttt{ReportHolidayRequest} is the most involved of the three, because it has to decide who is even allowed to ask before it computes anything. After deanonymising the target person's name and resolving the \texttt{RESPONSABILE\_DI\_RIFERIMENTO} and \texttt{AUTORIZZATORE} relation types, the method checks that the caller satisfies at least one of three conditions: managing the person within their own \texttt{PULITO\_DA} perimeter, being their Responsabile, or being their Autorizzatore. This authorisation gate runs entirely in deterministic C\# code, before any absence data is touched, rather than being left to Claude's judgement; Claude has already exited the loop by the time this check happens, since its role stopped at selecting the tool and extracting the person's name (Section~\ref{subsec:impl_ask_antares}).
+
+Once authorised, the method builds the full worker pool across every cantiere the caller can see and identifies which of those cantieri the target person actually works at as a \texttt{PULITO\_DA} worker. For each of those cantieri, it calls \texttt{GetAbsencesForPerson} against every worker on site to find who else is absent that day, separates absent colleagues from the rest, and finds non-colleagues within 15\,km, flagging which of those are also absent. The report this produces is per-cantiere rather than a single flat list, since a substitute needs to be both physically close and actually available, and availability only makes sense in the context of one specific site's absence record on one specific day. As with the other two use cases, the caller and Claude see only the confirmation string; the per-cantiere breakdown exists solely in the server-side log.
 
 % ==========================================
 \section{Backend Integration and Data Abstraction}
 \label{sec:impl_backend_integration}
 
+Every use case described in Section~\ref{sec:impl_jobtools} needs real workforce data: persons, cantieri, relations, absences. None of the tool classes that fetch this data talk to the Antares/Miorelli backend directly. They talk to \texttt{IMiorelliService}, and for the entire duration of the internship, the concrete implementation behind that interface was a mock, not the production system.
+
 \subsection{The \texttt{IMiorelliService} Interface}
 \label{subsec:impl_miorelli_interface}
-% Write your text here describing the interface contract and its separation of concerns from JobTools
+
+\texttt{IMiorelliService} is the single interface every data-access tool class depends on for person, cantiere, relation, and absence data:
+\begin{itemize}
+\item \texttt{PersonTools}
+\item \texttt{AssetTools}
+\item \texttt{AbsenceTools}
+\item \texttt{LookupTools}
+\item \texttt{IdentityTools}
+\end{itemize}
+None of these classes constructs an HTTP request or knows the shape of the Antares REST API; they call a method on the interface and get back a strongly typed result. Depending on an abstraction rather than a concrete backend is the dependency inversion principle~\cite{martin1996dip} applied at the one seam in the system that was guaranteed to change: high-level business logic in \texttt{JobTools} and the tool classes does not depend on low-level details of how Miorelli data is actually fetched, and the reverse dependency, a concrete implementation satisfying the interface's contract, can be swapped without touching a single line of the code that calls it.
+
+Not every tool-class method is a passthrough to the interface. \texttt{CalculateDistanceAndRank}, defined on \texttt{PersonTools} and used throughout Section~\ref{sec:impl_jobtools}, is pure computation over data \texttt{IMiorelliService} already returned. The interface itself only ever hands back persons, cantieri, and relations, not a ranking of them.
 
 \subsection{The Stub/Mock Pattern}
 \label{subsec:impl_miorelli_stub}
-% Write your text here describing MiorelliServiceStub, the mock dataset, and the fallback exception pattern
+
+\texttt{MiorelliServiceStub} is the only implementation of \texttt{IMiorelliService} that existed during the internship. It returns data from a small, hand-built in-memory dataset, the same fictional workers and cantieri (Giulia Conti, the Bergamo site) that appear in the use case prompts throughout Chapter~\ref{ch:usecases}, rather than querying any real database.
+
+This was a deliberate scope decision, not an oversight. The production Miorelli database holds a large volume of personnel data, and building the anonymisation layer and its integration with a real, sensitive data source at the same time would have spread the team's attention across two hard problems at once, with actual PII at risk if either was rushed. The team chose to get the anonymisation and orchestration architecture right against a safe mock dataset first and treat real backend integration as a separate, later step, prioritising correctness and data safety over finishing the full integration within the internship's timeframe.
+
+The stub also models failure, not just data. Where a piece of mock data is genuinely absent, it throws \texttt{MiorelliClientNotAvailableException} rather than returning an empty or null result. \texttt{IdentityTools.ResolveCallerIdentity} catches this exception and falls back to a hardcoded default identity (Paolo Ricci, Service Manager) instead of letting the failure propagate to the caller. The mechanism is a plain try/catch around a single call site, not a dedicated type woven into the domain model, but the motivation is the one behind Fowler's Special Case pattern~\cite{fowler2002specialcase}: a caller should not have to handle an exceptional outcome specially when a well-formed, ordinary-looking value satisfying the same contract can stand in for it instead.
 
 \subsection{NSwag Client Generation and the Migration Path}
 \label{subsec:impl_nswag_migration}
-% Write your text here describing OpenAPI-based client generation and the steps to migrate from mock to real Miorelli backend
+
+The path to a real backend is not a from-scratch integration; most of it already exists and sits unused behind the stub. \texttt{program.cs} registers a named \texttt{AntaresGeneratedClient} HTTP client pointed at the real Antares API (\texttt{ApiSettings:GeneratedClientBaseUrl}), and an \texttt{AntaresAPIClient}, generated by NSwag from that API's OpenAPI specification, the same code-generation approach already used for the Anonymisation Service client in Section~\ref{sec:impl_tech_stack}. Basic-auth credentials for the real API are already read from \texttt{ApiSettings:ApiKey} and \texttt{ApiSettings:ApiSecret} via \texttt{dotnet user-secrets}, configured and ready even while the stub is what actually runs.
+
+Migrating to the real backend means writing one new class that implements \texttt{IMiorelliService} using \texttt{AntaresAPIClient} instead of the in-memory dataset. After that, \texttt{program.cs}'s dependency injection registration changes on a single line: \texttt{IMiorelliService} currently resolves to \texttt{MiorelliServiceStub}, and it would resolve to the new class instead. Every tool class, every use case in \texttt{JobTools}, and every MCP tool schema built from those classes stays exactly as written, because none of them ever depended on which implementation of \texttt{IMiorelliService} they were talking to. This is the payoff of Section~\ref{subsec:impl_miorelli_interface}'s abstraction: the cost of deferring backend integration was paid once, in designing the interface correctly, rather than being owed again at the point the real system finally arrives.

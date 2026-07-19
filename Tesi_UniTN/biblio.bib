@@ -89,6 +89,14 @@
   note={Open protocol for connecting LLM clients to external tools and data sources. Accessed: June 2026}
 }
 
+@misc{anthropic2024tooluse,
+  title={Tool Use with {Claude}},
+  author={{Anthropic}},
+  year={2024},
+  howpublished={\url{https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview}},
+  note={Claude API documentation for schema-driven function calling, invoked via the Anthropic.SDK in \texttt{AntaresTools}. Accessed: July 2026}
+}
+
 @inproceedings{bunder2019decoupling,
   title={Decoupling language and editor --- the impact of the language server protocol on textual domain-specific languages},
   author={B{\"u}nder, Hendrik},
@@ -196,11 +204,19 @@
   year={2023}
 }
 
+@misc{zaratiana2024glinermultiv21,
+  title={{gliner\_multi-v2.1} Model Card},
+  author={Zaratiana, Urchade},
+  year={2024},
+  howpublished={\url{https://huggingface.co/urchade/gliner_multi-v2.1}},
+  note={Multilingual GLiNER checkpoint used by the anonymisation pipeline for Italian NER. Apache~2.0 licence. Accessed: July 2026}
+}
+
 % ==========================================
 % PII DETECTION TOOLS
 % ==========================================
 
-@misc{microsoft2020presidio,
+@misc{microsoft2018presidio,
   title={Presidio --- Data Protection and De-identification {SDK}},
   author={{Microsoft}},
   year={2018},
@@ -209,12 +225,60 @@
 }
 
 % ==========================================
+% GEOSPATIAL COMPUTATION
+% ==========================================
+
+@article{sinnott1984haversine,
+  title={Virtues of the Haversine},
+  author={Sinnott, Roger W.},
+  journal={Sky and Telescope},
+  volume={68},
+  number={2},
+  pages={159},
+  year={1984}
+}
+
+% ==========================================
+% DISTRIBUTED SYSTEMS RELIABILITY
+% ==========================================
+
+@misc{brooker2015backoff,
+  title={Exponential Backoff and Jitter},
+  author={Brooker, Marc},
+  year={2015},
+  howpublished={\url{https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/}},
+  note={{AWS} Architecture Blog. Accessed: July 2026}
+}
+
+% ==========================================
+% SOFTWARE DESIGN PATTERNS
+% ==========================================
+
+@article{martin1996dip,
+  title={The Dependency Inversion Principle},
+  author={Martin, Robert C.},
+  journal={C++ Report},
+  volume={8},
+  number={6},
+  pages={61--66},
+  year={1996}
+}
+
+@misc{fowler2002specialcase,
+  title={Special Case},
+  author={Fowler, Martin},
+  year={2002},
+  howpublished={\url{https://martinfowler.com/eaaCatalog/specialCase.html}},
+  note={From \emph{Patterns of Enterprise Application Architecture}. Accessed: July 2026}
+}
+
+% ==========================================
 % INFRASTRUCTURE / FRAMEWORKS
 % ==========================================
 
 @misc{redis2009,
   title={Redis},
-  author={{Redis Ltd.}},
+  author={Sanfilippo, Salvatore},
   year={2009},
   howpublished={\url{https://redis.io}},
   note={In-memory data structure store used for ephemeral session context storage. Accessed: June 2026}
@@ -228,12 +292,12 @@
   note={Modern, high-performance web framework for building APIs with Python. Accessed: June 2026}
 }
 
-@misc{nswag2020,
+@misc{nswag2015,
   title={{NSwag}: The {Swagger}/{OpenAPI} toolchain for {.NET}},
-  author={{NSwag contributors}},
-  year={2020},
+  author={Suter, Rico and {NSwag contributors}},
+  year={2015},
   howpublished={\url{https://github.com/RicoSuter/NSwag}},
-  note={Used for automatic C\# client generation from OpenAPI specifications. Accessed: June 2026}
+  note={Repository created September 2015. Used for automatic C\# client generation from OpenAPI specifications. Accessed: June 2026}
 }
 
 @misc{dotnet10,
@@ -242,6 +306,22 @@
   year={2025},
   howpublished={\url{https://dotnet.microsoft.com}},
   note={Cross-platform application framework used for the MCP server, anonymisation API, and MCP client. Accessed: June 2026}
+}
+
+@misc{astral2024uv,
+  title={{uv}: An Extremely Fast {Python} Package and Project Manager},
+  author={{Astral Software Inc.}},
+  year={2024},
+  howpublished={\url{https://docs.astral.sh/uv/}},
+  note={Used for dependency resolution and environment management in the GLiNER Service. Accessed: July 2026}
+}
+
+@book{newman2021building,
+  title={Building Microservices: Designing Fine-Grained Systems},
+  author={Newman, Sam},
+  edition={2nd},
+  year={2021},
+  publisher={O'Reilly Media}
 }
 
 @misc{openai2025privacyfilter,
