@@ -1,6 +1,8 @@
 # Project Context — Antares AI / Thesis
 
-At the start of every conversation, read all files in `internship_documents/` in parallel to load full project context:
+At the start of every conversation, first read `CHKPNT.md` in the repo root. It is a session checkpoint: which chapters are written, what was done last session, what's open, and what to do next. It is not documentation of the codebase and can go stale — treat it as a starting point to confirm against the actual files, not as ground truth on its own. Update it at the end of any session that changes chapter status.
+
+Then read all files in `internship_documents/` in parallel to load full project context:
 
 - `internship_documents/Internship_information.md`
 - `internship_documents/README.md`
