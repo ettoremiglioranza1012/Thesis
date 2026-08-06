@@ -1,0 +1,124 @@
+CORRECTION: UC-A tokenization worked example (architecture.tex)
+================================================================================
+
+Source: NOT a professor feedback point. This correction was made by the
+separate Claude Code agent building the quantitative validation pipeline
+in the application's own repository
+(AI-powered-workforce-management-system), while constructing the
+ground-truth test set for the GLiNER evaluation component. It ran the
+exact canonical UC-A prompt already quoted in architecture.tex's data-flow
+walkthrough against the live `/anonymize` endpoint to confirm the worked
+example was still accurate, found it wasn't, and corrected it directly in
+this thesis repository (both repos live on the same machine; the agent
+had write access to this path). Confirmed independently before accepting
+it: re-read the corrected paragraph in architecture.tex myself and it
+matches exactly what Docs/validation-pipeline.md in the application repo
+describes, cross-checked the underlying claim isn't contradicted by
+anything else in this session's own edits (it isn't — none of this
+session's own passes touched this paragraph).
+
+File touched: capitoli/architecture.tex, Section 3.6.1 ("Tokenisation and
+Redis Context Storage", subsec:arch_tokenization_redis).
+
+Committed as part of 63133c8 alongside this session's own rewording work
+(it was already sitting in the working tree when that commit was staged);
+logged here separately now for traceability, since it wasn't part of any
+of the five point-based passes.
+
+================================================================================
+FILE: capitoli/architecture.tex
+CHAPTER/SECTION: Section 3.6.1, "Tokenisation and Redis Context Storage"
+================================================================================
+
+--- OLD ---
+The lifecycle begins when the MCP client constructs a natural language
+prompt. For Use~Case~A, a typical prompt is: \emph{``Trova i lavoratori
+più vicini al cantiere Bergamo Via della Fonda~5 Giulia S.r.l.\ entro~15~km.
+Risolvi tutti i GUID internamente.''} This contains two PII spans: a
+location name (\emph{Bergamo Via della Fonda~5}) and a company name
+(\emph{Giulia S.r.l.}).
+
+The client calls \texttt{GET /anonymize}. The API calls the GLiNER
+service, receives entity predictions, runs the three-stage filtering
+pipeline, and sorts surviving entities by character offset in reverse
+order. Replacements are applied right-to-left to avoid invalidating
+offsets of earlier spans. The location becomes \texttt{<LOCATION\_0001>}
+and the company becomes \texttt{<ORGANIZATION\_0001>}.
+
+The mapping \texttt{\{"<LOCATION\_0001>": "Bergamo Via della Fonda 5",
+"<ORGANIZATION\_0001>": "Giulia S.r.l."\}} is stored in Redis under
+\texttt{anon:context:\{contextId\}}, where \texttt{contextId} is a
+freshly generated UUID. The API returns the anonymised prompt and the
+\texttt{contextId} to the client. No PII is in the response; the client
+holds only an opaque session identifier.
+
+--- NEW ---
+The lifecycle begins when the MCP client constructs a natural language
+prompt. For Use~Case~A, a typical prompt is: \emph{``Trova i lavoratori
+più vicini al cantiere Bergamo Via della Fonda~5 Giulia S.r.l.\ entro~15~km.
+Risolvi tutti i GUID internamente.''} The site descriptor \emph{Bergamo
+Via della Fonda~5 Giulia S.r.l.} identifies both the client site and the
+contracting company operating it, and is the PII span the anonymisation
+layer must remove before this prompt crosses the MCP boundary.
+
+The client calls \texttt{GET /anonymize}. The API calls the GLiNER
+service, receives entity predictions, runs the three-stage filtering
+pipeline, and sorts surviving entities by character offset in reverse
+order. Replacements are applied right-to-left to avoid invalidating
+offsets of earlier spans. GLiNER's zero-shot detection does not resolve
+this compound descriptor as a single location plus a single organization,
+as a rule-based recogniser tuned on it might; it surfaces three separate
+\texttt{location}-typed spans instead: \emph{Bergamo}, \emph{Via della
+Fonda}, and \emph{Giulia S.r.l.}, with the street number \texttt{5}
+falling between spans and left untagged (not itself identifying). The
+\texttt{organization} label is never applied here, even though the
+anonymisation service's label set includes it. This is measured,
+reproducible behaviour, not a one-off; Section~\ref{subsec:usecases_ner_performance}
+reports the full quantitative detection results this single trace is
+drawn from. The anonymisation service tokenises per predicted span rather
+than merging adjacent same-type detections, so three tokens are produced:
+\texttt{<LOCATION\_0001>}, \texttt{<LOCATION\_0002>}, and
+\texttt{<LOCATION\_0003>}.
+
+The mapping \texttt{\{"<LOCATION\_0001>": "Bergamo", "<LOCATION\_0002>":
+"Via della Fonda", "<LOCATION\_0003>": "Giulia S.r.l."\}} is stored in
+Redis under \texttt{anon:context:\{contextId\}}, where \texttt{contextId}
+is a freshly generated UUID. The API returns the anonymised prompt,
+\texttt{"Trova i lavoratori più vicini al cantiere <LOCATION\_0001>
+<LOCATION\_0002> 5 <LOCATION\_0003> entro 15 km..."}, and the
+\texttt{contextId} to the client. No PII is in the response; the client
+holds only an opaque session identifier. The fragmentation does not
+itself create a leak, since every span GLiNER did detect is tokenised
+regardless of how it is split or labelled — but it illustrates why
+detection recall, not label precision, is the property the privacy claim
+actually rests on.
+
+--- WHY ---
+The original worked example was written before any systematic evaluation
+of GLiNER's actual behaviour on this exact prompt existed, and it turned
+out to be wrong: GLiNER never applies the `organization` label to this
+input, and fragments the compound site/company descriptor into three
+separate LOCATION-typed spans rather than the two-token
+(LOCATION + ORGANIZATION) example originally described. No privacy
+consequence follows from the fragmentation itself (every fragment is
+still tokenised), but a worked example that misdescribes measured system
+behaviour undermines the chapter's credibility once the real numbers
+exist to check it against. Corrected to match reality and forward-
+referenced to the quantitative detection results (Section 5.5) that this
+one trace is now known to be representative of, rather than left as an
+illustrative-but-inaccurate simplification.
+
+================================================================================
+NOTE FOR CHAPTER 5
+================================================================================
+
+Section~\ref{subsec:usecases_ner_performance} (component 2 / routing
+results) independently confirms a downstream consequence of this same
+fragmentation: the three LOCATION tokens for the canonical UC-A prompt
+caused Claude to call `get_nearest_workers_to_cantiere` three times in one
+`ask_antares` invocation (once per fragment) rather than recognising them
+as one compound site descriptor. Harmless in this specific case (all
+three lookups resolve to the same cantiere), but flagged in Chapter 5 as
+a limitation/future-work item: fragmented anonymisation can change how
+many times, and with what parameters, the LLM invokes a business tool,
+not just how entities are labelled.

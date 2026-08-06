@@ -1,7 +1,7 @@
 # Thesis Checkpoint
 
-Last updated: 2026-08-06 (end of the session that handled the first round
-of professor feedback).
+Last updated: 2026-08-06 (same session, continued: Chapter 5 written
+against real pipeline results).
 
 This file is a working checkpoint for picking the thesis back up in a new
 session. It is not a memory file and not documentation of the codebase —
@@ -19,7 +19,7 @@ status, not mid-session.
 | 2 | Background & Related Work | `capitoli/background.tex` | **Written** — full prose. Untouched this session: already correctly hedges every claim the feedback round flagged, used as the calibration reference for every rewording done elsewhere |
 | 3 | System Architecture | `capitoli/architecture.tex` | **Written** — full prose, revised this session (points 2, 4, 7) |
 | 4 | Implementation Details | `capitoli/Implementation.tex` | **Written** — full prose, revised this session (points 2, 4, 5 confirmed no change needed, 6, 7) |
-| 5 | Use Cases & Validation | `capitoli/Validation.tex` | Skeleton — headings only, §5.5 disabled via `\iffalse`. **Drafting still paused**, untouched this session |
+| 5 | Use Cases & Validation | `capitoli/Validation.tex` | **Written this session, in full** — chapter-opening paragraph, §5.1–§5.4, and §5.5 (re-enabled from `\iffalse`), all against real measured results from the point-1 pipeline (see below) |
 | 6 | Discussion & Future Work | `capitoli/discussion.tex` | **Partially written this session** — chapter-opening paragraph, §6.1 ("Security vs. Complexity Trade-offs", point 4's Redis/log-persistence limitation) and §6.2 ("Validation Methodology Limitations", point 6's schema-vs-correctness and temperature limitation) now have real prose. §6.3–6.5 (production migration, Redis scalability, future extensions) still `\iffalse` |
 | 7 | Conclusions | `capitoli/conclusions.tex` | Skeleton — 2 sections, no prose |
 
@@ -86,27 +86,65 @@ paused behind the feedback round below.
 - Point 3 (threat model) intentionally left untouched — explicitly
   optional per the professor's own note.
 
+## Point 1 (quantitative pipeline) — landed
+
+The separate Claude Code agent working in
+`/Users/ettoremiglioranza/Projects/AI-powered-workforce-management-system`
+(a different local repo, not this one) succeeded. Handoff artifact:
+`Docs/validation-pipeline.md` in that repo, raw results in
+`Validation/results/*.{json,csv,md}`. Every headline number in that doc
+was independently cross-checked against the raw result files before use
+(not taken on faith) — all confirmed accurate. Summary of what it found:
+
+- GLiNER coverage P/R/F1: 0.938/0.915/0.926. Strict: 0.840/0.829/0.834.
+  7 false negatives (4 date-range phrasing, 2 emails, 1 bare city name),
+  5 false positives, all explainable.
+- Payload PII-leak audit: 2 leaks out of 50 prompts scanned, both
+  correlating with a GLiNER false negative, zero uncorrelated leaks —
+  empirical confirmation that the privacy property has no independent
+  bypass path.
+- Routing: 95.2% measured (100/105 trials), but the one discrepancy
+  (R-C6) is a log-diffing observability blind spot, not a routing error —
+  true accuracy is very likely 105/105. 21/21 prompts fully consistent
+  across 5 repetitions despite temperature=1.0.
+- End-to-end UC-A/B/C: 12/12 cases matched an independent, non-shared-
+  code reference implementation.
+- One correction propagated directly into this repo by that agent (not
+  by me): `architecture.tex`'s UC-A tokenisation worked example was
+  wrong (described 2 tokens, GLiNER actually produces 3, fragmenting the
+  compound site/company descriptor). Verified and logged in
+  `Tesi_UniTN/diff/correct_uc_a_tokenization_example.txt`.
+
+All of this is now written into `Validation.tex` §5.5, with both the
+routing caveat (measured vs. true accuracy) and the itemized
+false-negative list reported explicitly, not summarised into a single
+headline number — that was flagged as the one place a naive summary
+would misreport what was actually found.
+
 ## Open items carried forward
 
-1. **Point 1's pipeline status is unknown.** Check on it next session.
-   If it lands, its results go into §5.5 and get added on top of the
-   agnostic language already written into chapters 1/3/4/6 (not replacing
-   it). If it doesn't land in time, §5.5 gets written as an explicit
-   statement of what wasn't measured, consistent with the agnostic
-   framing already in place.
-2. **`dev` branch is uncommitted.** Decide whether to commit there, keep
-   iterating, or merge to `main` — nothing has been pushed.
-3. **Point 3 (threat model)** — still optional, still not started.
-4. **Chapter 5 (§5.1–§5.4) and Chapter 7** — drafting paused for the
-   entire feedback round, not resumed yet.
+1. **Chapter 5's new prose is uncommitted as of this writing** —
+   confirm with whoever picks this up next whether it's been committed
+   since. Same `dev` branch as the point-2/4/5/6/7 rewording pass
+   (commit `63133c8`, pushed to `origin/dev`).
+2. **`dev` branch is not merged to `main`.** Decide when/whether to
+   merge or open a PR — nothing beyond `dev` has been pushed.
+3. **Point 3 (threat model)** — still optional, still not started, out
+   of scope for this session per explicit instruction.
+4. **Chapter 7 (Conclusions)** — not started. Chapter 5 is now done, so
+   this is the next actual writing gap.
+5. **UC-C's substitute-finding branch was never exercised** in this
+   validation run, since it ran outside the mock dataset's absence-ticket
+   date window (2026-03-28–2026-04-10). Stated as a limitation in
+   `Validation.tex` itself, not hidden. A re-run during that window
+   (dataset and harness are reusable, per the pipeline's own docs) would
+   exercise it, if a fuller UC-C trace is wanted for the defense version.
 
 ## Next session
 
-1. Check on the pipeline agent (point 1).
-2. Decide `dev`'s fate (commit / keep working / merge).
-3. Resume Chapter 5 drafting per the original plan (§5.1 domain overview,
-   §5.2–§5.4 the three use-case traces using the real prompts from
-   `internship_documents/mcp-client.md`), then write §5.5 once point 1's
-   outcome is known.
-4. Optionally tackle point 3 (threat model) if time allows.
-5. Chapter 7 (Conclusions) after Chapter 5 is done.
+1. Decide `dev`'s fate (commit remaining work / merge to `main` / open a
+   PR) — check whether Chapter 5 got committed before this session ended.
+2. Chapter 7 (Conclusions) — the one remaining unwritten chapter.
+3. Optionally tackle point 3 (threat model) if time allows.
+4. Optionally re-run the UC-C validation inside the mock dataset's date
+   window for a fuller substitute-finding trace before the defense.
