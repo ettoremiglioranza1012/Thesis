@@ -1,7 +1,7 @@
 # Thesis Checkpoint
 
-Last updated: 2026-08-06 (same session, continued: Chapter 5 written
-against real pipeline results).
+Last updated: 2026-08-06 (same session, continued again: Chapter 6
+finished).
 
 This file is a working checkpoint for picking the thesis back up in a new
 session. It is not a memory file and not documentation of the codebase —
@@ -19,9 +19,9 @@ status, not mid-session.
 | 2 | Background & Related Work | `capitoli/background.tex` | **Written** — full prose. Untouched this session: already correctly hedges every claim the feedback round flagged, used as the calibration reference for every rewording done elsewhere |
 | 3 | System Architecture | `capitoli/architecture.tex` | **Written** — full prose, revised this session (points 2, 4, 7) |
 | 4 | Implementation Details | `capitoli/Implementation.tex` | **Written** — full prose, revised this session (points 2, 4, 5 confirmed no change needed, 6, 7) |
-| 5 | Use Cases & Validation | `capitoli/Validation.tex` | **Written this session, in full** — chapter-opening paragraph, §5.1–§5.4, and §5.5 (re-enabled from `\iffalse`), all against real measured results from the point-1 pipeline (see below) |
-| 6 | Discussion & Future Work | `capitoli/discussion.tex` | **Partially written this session** — chapter-opening paragraph, §6.1 ("Security vs. Complexity Trade-offs", point 4's Redis/log-persistence limitation) and §6.2 ("Validation Methodology Limitations", point 6's schema-vs-correctness and temperature limitation) now have real prose. §6.3–6.5 (production migration, Redis scalability, future extensions) still `\iffalse` |
-| 7 | Conclusions | `capitoli/conclusions.tex` | Skeleton — 2 sections, no prose |
+| 5 | Use Cases & Validation | `capitoli/Validation.tex` | **Written this session, in full** — chapter-opening paragraph, §5.1–§5.4, and §5.5 (re-enabled from `\iffalse`), all against real measured results from the point-1 pipeline (see below), plus 6 data tables (E2E results ×3, GLiNER metrics, itemized false negatives, routing summary) |
+| 6 | Discussion & Future Work | `capitoli/discussion.tex` | **Written this session, in full** — chapter-opening paragraph and all five sections. §6.1/§6.2 came from the feedback rewording pass (points 4, 6); §6.3 (production migration) reflects on and prioritises the point-7 caveat already in `Implementation.tex` rather than repeating it; §6.4 (Redis scalability) is new analysis, ties the TTL gap from §6.1 to memory growth under load; §6.5 (future extensions: voice, local models) is deliberately more speculative/lower-confidence, framed as open measurement questions rather than claims |
+| 7 | Conclusions | `capitoli/conclusions.tex` | Skeleton — 2 sections, no prose. **Next actual writing gap** |
 
 Chapters 1–4 are done and now also reworded against the professor's
 feedback. Chapter 6 has gone from fully unwritten to two real sections.
@@ -30,22 +30,26 @@ paused behind the feedback round below.
 
 ## Git state
 
-- `main` is up to date with `origin/main`, commit `b20b888`, untouched
-  this session — nothing was committed or pushed.
-- All of this session's work (the rewording pass below + the new
-  `Tesi_UniTN/diff/` logs) lives **uncommitted, on a local branch named
-  `dev`**, branched off `main` at `b20b888`. It was moved there via
-  `git stash` → `git checkout -b dev` → `git stash pop` at the end of the
-  session, verified clean at every step (stash list empty, diff against
-  HEAD matches exactly the 11 expected files, `main` confirmed untouched).
-  **Nothing has been committed on `dev` yet** — next session should
-  either commit there or decide whether to merge into `main`.
-- Diff logs for every completed feedback point live in `Tesi_UniTN/diff/`
-  (currently untracked/new on `dev`): `narrow_the_privacy_claims.txt`,
+- `main` is up to date with `origin/main`, commit `cd04ab6`. Everything
+  from this session — the point-2/4/5/6/7 rewording pass, Chapter 5 in
+  full, and the six data tables added to it afterward — is committed and
+  pushed, in three commits: `63133c8` (rewording), `774fdc2` (Chapter 5
+  prose), `cd04ab6` (Chapter 5 tables).
+- The work was drafted on a local branch `dev` first (stash → new branch
+  → stash pop, verified clean at every step), then fast-forward merged
+  into `main` (`--ff-only`, no conflicts possible since `main` hadn't
+  moved) and pushed directly. The table-addition commit was made directly
+  on `main` per explicit instruction, after the merge.
+- `dev` still exists, both locally and as `origin/dev`, but `main` now
+  has everything `dev` has — it's redundant. Fine to delete whenever
+  (`git branch -d dev` / `git push origin --delete dev`), not urgent.
+- Diff logs for every completed feedback point plus the one external
+  correction live in `Tesi_UniTN/diff/`: `narrow_the_privacy_claims.txt`,
   `distinguish_deterministic_execution_from_correctness.txt`,
   `correct_the_persistence_description.txt`,
   `reframe_the_contribution_and_novelty.txt`,
-  `clarify_the_prototype_scope.txt`. Each records, per edit: file,
+  `clarify_the_prototype_scope.txt`,
+  `correct_uc_a_tokenization_example.txt`. Each records, per edit: file,
   chapter/section, old text, new text, and why.
 
 ## What happened this session
@@ -80,11 +84,16 @@ paused behind the feedback round below.
   accuracy and consistency across repeated runs given the routing model's
   temperature 1.0, UC-A/B/C expected-vs-observed, and a payload PII-leak
   audit) to a separate Claude Code agent working in the application's own
-  repository, outside this thesis repo. **Status unknown from within this
-  session** — it hasn't reported back yet. Risk flagged to the professor:
-  the Anthropic API token available may be expired, which could block it.
+  repository, outside this thesis repo. **It landed later in this same
+  session** — see the dedicated section below.
 - Point 3 (threat model) intentionally left untouched — explicitly
   optional per the professor's own note.
+- Finished Chapter 6 (`discussion.tex`): §6.3, §6.4, §6.5 written,
+  un-`\iffalse`'d, chapter-opening paragraph updated to name all five
+  sections. Investigated a citation-rendering issue the user flagged as
+  broken first (see open items) — found no reproducible problem, but
+  wrote this pass's new content without adding any new `biblio.bib`
+  entries as a precaution.
 
 ## Point 1 (quantitative pipeline) — landed
 
@@ -123,28 +132,44 @@ would misreport what was actually found.
 
 ## Open items carried forward
 
-1. **Chapter 5's new prose is uncommitted as of this writing** —
-   confirm with whoever picks this up next whether it's been committed
-   since. Same `dev` branch as the point-2/4/5/6/7 rewording pass
-   (commit `63133c8`, pushed to `origin/dev`).
-2. **`dev` branch is not merged to `main`.** Decide when/whether to
-   merge or open a PR — nothing beyond `dev` has been pushed.
-3. **Point 3 (threat model)** — still optional, still not started, out
+1. **A citation-related issue was flagged by the user as broken in the
+   final PDF, but not independently reproduced.** Investigated before
+   writing Chapter 6's remaining sections: `\printbibliography` is
+   correctly configured (`fine.tex`), the BibTeX log shows no
+   warnings/errors, and all 34 `biblio.bib` entries print correctly in
+   the compiled PDF with in-text numbers cross-referencing correctly
+   (spot-checked Albanese = [1] and Vaswani = [30] in both body and
+   list). As a precaution, §6.3-6.5 were written without adding any new
+   `biblio.bib` entries, reusing only citations already in the document.
+   **The specific symptom the user saw was never identified — ask for
+   a concrete example (which citation, where in the PDF) before trusting
+   the citation system fully or adding new entries.**
+2. **Point 3 (threat model)** — still optional, still not started, out
    of scope for this session per explicit instruction.
-4. **Chapter 7 (Conclusions)** — not started. Chapter 5 is now done, so
-   this is the next actual writing gap.
-5. **UC-C's substitute-finding branch was never exercised** in this
-   validation run, since it ran outside the mock dataset's absence-ticket
-   date window (2026-03-28–2026-04-10). Stated as a limitation in
-   `Validation.tex` itself, not hidden. A re-run during that window
-   (dataset and harness are reusable, per the pipeline's own docs) would
-   exercise it, if a fuller UC-C trace is wanted for the defense version.
+3. **Chapter 7 (Conclusions)** — not started. This is now the only
+   unwritten chapter. Needs to summarise what Chapters 5 and 6 actually
+   established against the objectives stated in Chapter 1
+   (`sec:intro_objectives`).
+4. **UC-C's substitute-finding branch was never exercised** in the
+   validation run behind Chapter 5, since it ran outside the mock
+   dataset's absence-ticket date window (2026-03-28–2026-04-10). Stated
+   as a limitation in `Validation.tex` itself, not hidden. A re-run
+   during that window (dataset and harness are reusable, per the
+   pipeline's own docs) would exercise it, if a fuller UC-C trace is
+   wanted for the defense version.
+5. **`dev` branch is redundant** now that `main` has everything it had —
+   safe to delete locally and on `origin` whenever, not urgent.
 
 ## Next session
 
-1. Decide `dev`'s fate (commit remaining work / merge to `main` / open a
-   PR) — check whether Chapter 5 got committed before this session ended.
-2. Chapter 7 (Conclusions) — the one remaining unwritten chapter.
+1. **Chapter 7 (Conclusions)** — the only remaining unwritten chapter.
+   Summarise achieved results against Chapter 1's three research
+   questions (Section~\ref{sec:intro_objectives}), referencing the real
+   measured numbers from Chapter 5 and the honestly-stated limitations
+   from Chapter 6, not re-asserting anything Chapter 6 already qualified.
+2. Chase down the citation-system symptom flagged above before adding
+   any new `biblio.bib` entries — get a concrete example first.
 3. Optionally tackle point 3 (threat model) if time allows.
 4. Optionally re-run the UC-C validation inside the mock dataset's date
    window for a fuller substitute-finding trace before the defense.
+5. Housekeeping: delete the now-redundant `dev` branch (local + remote).
