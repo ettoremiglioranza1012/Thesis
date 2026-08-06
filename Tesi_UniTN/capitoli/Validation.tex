@@ -22,7 +22,23 @@ Use Case A is validated against four test cases exercising \texttt{get\_nearest\
 
 Correctness here means agreement between the live system's output and an independently computed expected result, not agreement between the system and itself. The reference used for this comparison is a hand-built mirror of the mock dataset with its own Haversine implementation, written separately from \texttt{PersonTools.CalculateDistanceAndRank} (Section~\ref{subsec:impl_uca}) rather than sharing code with it, so a match is a real check rather than the system confirming its own arithmetic. Before running the full test set, the formula itself was spot-checked against a live server report: for the canonical Bergamo prompt at a 15\,km radius, the server logged two workers at 0.9\,km and 1.9\,km respectively, and the independent calculation matched both distances to within 0.1\,km.
 
-Across four cases, run twice each, every case matched the independent reference on every repetition. The Brescia case correctly returns the two \texttt{PULITO\_DA} workers assigned there; the not-found case correctly reports no matching cantiere. The Mantova case is a genuine negative result rather than a placeholder: both workers assigned to that cantiere live outside the 15\,km search radius, and the independent reference agrees that the correct output is an empty result, not a system failure.
+Table~\ref{tab:uca_e2e} summarises all four cases. Every case matched the independent reference on every repetition. The Mantova case is a genuine negative result rather than a placeholder: both workers assigned to that cantiere live outside the 15\,km search radius, and the independent reference agrees that the correct output is an empty result, not a system failure.
+
+\begin{table}[htbp]
+\centering
+\caption{Use Case A end-to-end results (4 cases, 2 repetitions each)}
+\label{tab:uca_e2e}
+\begin{tabular}{llll}
+\hline
+\textbf{Case} & \textbf{Cantiere} & \textbf{Expected result (15 km)} & \textbf{Match} \\
+\hline
+E-A1 (canonical) & Bergamo & Stefano Villa, Marta Rizzi & Yes, both reps \\
+E-A2 & Brescia & Marco Ferretti, Giulia Conti & Yes, both reps \\
+E-A3 & Mantova & none (all workers $>$15 km) & Yes, both reps \\
+E-A4 & (nonexistent) & not-found path & Yes, both reps \\
+\hline
+\end{tabular}
+\end{table}
 
 \subsection{Execution Flow and Prompt Handling}
 \label{subsec:usecases_spatial_flow}
@@ -37,7 +53,24 @@ Use Case B is validated against four test cases exercising \texttt{get\_colleagu
 
 Building the evaluation harness surfaced a methodological pitfall worth recording rather than silently fixing. \texttt{JobTools}' UC-B report contains two structurally similar row blocks: the person's actual colleagues, and the five nearest non-colleagues, a deliberately disjoint set used for substitute-finding rather than colleague identification. An early version of the log parser used a single pattern to extract name rows and matched both blocks indiscriminately, which made every case look like a mismatch, since the observed set always included several unrelated extra names. The fault was in the evaluation harness, not in the system under test; the fix was scoping extraction to the text between the two section headers before re-running. It is included here because it generalises: log-scraping evaluation of a black-box system needs the same care about a report's internal structure as any other parser would, and a first result that looks wrong is not automatically evidence that the system is wrong.
 
-Across four cases, run twice each, every case matched the independent reference on every repetition, including one case where the observed and expected colleague sets differed only in row order, not in membership.
+Table~\ref{tab:ucb_e2e} summarises all four cases. Every case matched the independent reference on every repetition, including E-B3, where the observed and expected colleague sets differed only in row order, not in membership.
+
+\begin{table}[htbp]
+\centering
+\caption{Use Case B end-to-end results (4 cases, 2 repetitions each)}
+\label{tab:ucb_e2e}
+\small
+\begin{tabular}{ll p{5.5cm} l}
+\hline
+\textbf{Case} & \textbf{Person} & \textbf{Expected colleagues} & \textbf{Match} \\
+\hline
+E-B1 (canonical) & Giulia Conti & Marco Ferretti, Roberto Mazza & Yes \\
+E-B2 & Marco Ferretti & Giulia Conti, Roberto Mazza & Yes \\
+E-B3 & Antonio Neri & Carla Galli, Luca Sartori, Marta Rizzi, Stefano Villa & Yes \\
+E-B4 & (nonexistent) & not-found path & Yes \\
+\hline
+\end{tabular}
+\end{table}
 
 % ==========================================
 \section{Use Case C: Holiday Request and Absence Analysis}
@@ -50,7 +83,26 @@ Across four cases, run twice each, every case matched the independent reference 
 
 The three non-edge-case test cases were chosen specifically to exercise the three distinct ways \texttt{ReportHolidayRequest} authorises a caller (Section~\ref{subsec:impl_ucc}): as the target person's \texttt{RESPONSABILE\_DI\_RIFERIMENTO}, as their \texttt{AUTORIZZATORE}, and as a manager reaching them through the caller's own \texttt{PULITO\_DA} perimeter. All three authorised successfully, confirmed directly in each case's server-side log.
 
-Across four cases, run twice each (three authorization paths plus one nonexistent-person not-found case), every case matched the independent reference on every repetition: twelve of twelve end-to-end cases across all three use cases, combined, matched in full. The same log-parsing pitfall described in Section~\ref{sec:usecases_colleague_identification} recurs here in reverse: the report's list of absent colleagues sits directly above a list of nearby non-colleagues flagged present or absent, and the same section-scoping fix was required before the parser produced correct results.
+Table~\ref{tab:ucc_e2e} summarises all four cases. Every case matched the independent reference on every repetition: twelve of twelve end-to-end cases across all three use cases, combined, matched in full.
+
+\begin{table}[htbp]
+\centering
+\caption{Use Case C end-to-end results (4 cases, 2 repetitions each)}
+\label{tab:ucc_e2e}
+\small
+\begin{tabular}{l l p{3.6cm} l l}
+\hline
+\textbf{Case} & \textbf{Person} & \textbf{Authorization path} & \textbf{Absent} & \textbf{Match} \\
+\hline
+E-C1 (canonical) & Giulia Conti & Responsabile di riferimento & 0 & Yes \\
+E-C2 & Roberto Mazza & Autorizzatore & 0 & Yes \\
+E-C3 & Antonio Neri & \texttt{PULITO\_DA} perimeter & 0 & Yes \\
+E-C4 & (nonexistent) & --- & N/F & Yes \\
+\hline
+\end{tabular}
+\end{table}
+
+The same log-parsing pitfall described in Section~\ref{sec:usecases_colleague_identification} recurs here in reverse: the report's list of absent colleagues sits directly above a list of nearby non-colleagues flagged present or absent, and the same section-scoping fix was required before the parser produced correct results.
 
 % ==========================================
 \section{Privacy and Functional Validation}
@@ -70,11 +122,61 @@ Two leaks were found, out of fifty prompts scanned: an email address in one prom
 \subsection{Routing Accuracy and NER Performance in Italian}
 \label{subsec:usecases_ner_performance}
 
-\textbf{PII detection.} Fifty hand-built Italian prompts, carrying eighty-two labelled entity spans, were evaluated against the live \texttt{/anonymize} endpoint at its production configuration (Section~\ref{subsec:impl_gliner_pivot}): the real GLiNER-based detection path, threshold 0.45, the full eight-label set. Two metrics are reported: \emph{coverage}, whether a PII substring was tokenised at all regardless of the label predicted for it, which is the property that actually determines whether PII can leak; and \emph{strict}, standard span-and-label NER evaluation. Coverage precision, recall, and F1 were 0.938, 0.915, and 0.926 respectively; strict precision, recall, and F1 were 0.840, 0.829, and 0.834.
+\textbf{PII detection.} Fifty hand-built Italian prompts, carrying eighty-two labelled entity spans, were evaluated against the live \texttt{/anonymize} endpoint at its production configuration (Section~\ref{subsec:impl_gliner_pivot}): the real GLiNER-based detection path, threshold 0.45, the full eight-label set. Two metrics are reported: \emph{coverage}, whether a PII substring was tokenised at all regardless of the label predicted for it, which is the property that actually determines whether PII can leak; and \emph{strict}, standard span-and-label NER evaluation. Table~\ref{tab:gliner_metrics} reports both metrics in full.
 
-Seven entities were missed entirely under the coverage metric. Two were email addresses missed mid-sentence, both already identified in Section~\ref{subsec:usecases_llm_audit} as the two payload leaks. Four were Italian date-range expressions of the form \emph{``dal~X~al~Y~[aprile]''}, and one was a bare cantiere-city reference embedded inside a compound site descriptor. The date-range pattern accounts for four of the seven false negatives, the single largest recurring failure mode in this test set, and is reported here as a concrete, actionable finding rather than folded into an aggregate score: at its current threshold and label configuration, GLiNER's weakness on this test set is specific to Italian date-range phrasing, not PII detection generally. Five false positives were also observed, none of them random noise: two are generic temporal expressions plausibly mislabelled under a recall-favouring threshold, two are bare city or region names used generically inside a prompt built specifically to probe that behaviour, and one is a genuine spurious organisation detection. The gap between strict recall (0.829) and coverage recall (0.915) is consistent with the design rationale already stated in Section~\ref{subsec:impl_gliner_pivot}: the 0.45 threshold catches more entities than it assigns correct labels to, which is the expected shape of a configuration deliberately tuned toward recall over precision.
+\begin{table}[htbp]
+\centering
+\caption{GLiNER PII detection results (50 prompts, 82 labelled entity spans)}
+\label{tab:gliner_metrics}
+\begin{tabular}{lrrrrrr}
+\hline
+\textbf{Metric} & \textbf{TP} & \textbf{FP} & \textbf{FN} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\hline
+Coverage & 75 & 5 & 7 & 0.938 & 0.915 & 0.926 \\
+Strict & 68 & 13 & 14 & 0.840 & 0.829 & 0.834 \\
+\hline
+\end{tabular}
+\end{table}
 
-\textbf{Routing accuracy and temperature consistency.} Twenty-one prompts, six per use case plus three out-of-scope negative controls, were each run five times through the full anonymise-then-route pipeline, since the routing model runs at temperature 1.0 (Section~\ref{subsec:impl_ask_antares}) and a single pass cannot establish whether that setting produces run-to-run variation. Measured accuracy was 95.2\%, 100 of 105 trials correct, and every one of the twenty-one prompts selected the same outcome on all five repetitions: on this test set, at this prompt style and this system-prompt design, temperature 1.0 produced no observed run-to-run routing variance, a genuinely open question this component was built specifically to answer.
+Seven entities were missed entirely under the coverage metric, itemized in Table~\ref{tab:gliner_fn}. Two were email addresses missed mid-sentence, both already identified in Section~\ref{subsec:usecases_llm_audit} as the two payload leaks, marked accordingly in the table. Four were Italian date-range expressions of the form \emph{``dal~X~al~Y~[aprile]''}, and one was a bare cantiere-city reference embedded inside a compound site descriptor. The date-range pattern accounts for four of the seven false negatives, the single largest recurring failure mode in this test set, and is reported here as a concrete, actionable finding rather than folded into an aggregate score: at its current threshold and label configuration, GLiNER's weakness on this test set is specific to Italian date-range phrasing, not PII detection generally.
+
+\begin{table}[htbp]
+\centering
+\caption{Itemized false negatives under the coverage metric (7 of 82 gold spans)}
+\label{tab:gliner_fn}
+\begin{tabular}{l p{5.5cm} l l}
+\hline
+\textbf{Prompt} & \textbf{Missed value} & \textbf{Label} & \textbf{Leaked to payload?} \\
+\hline
+A12 & s.villa@miorelli.it & Email address & Yes \\
+A18 & dal 3 al 7 aprile & Date/time & No \\
+B4 & Brescia & Location & No \\
+B10 & dal 1 al 5 aprile & Date/time & No \\
+B12 & dal 3 al 7 aprile 2026 & Date/time & No \\
+B19 & p.ricci@miorelli.it & Email address & Yes \\
+B20 & dal 1 al 5 aprile 2026 & Date/time & No \\
+\hline
+\end{tabular}
+\end{table}
+
+Five false positives were also observed, none of them random noise: two are generic temporal expressions plausibly mislabelled under a recall-favouring threshold, two are bare city or region names used generically inside a prompt built specifically to probe that behaviour, and one is a genuine spurious organisation detection. The gap between strict recall (0.829) and coverage recall (0.915) is consistent with the design rationale already stated in Section~\ref{subsec:impl_gliner_pivot}: the 0.45 threshold catches more entities than it assigns correct labels to, which is the expected shape of a configuration deliberately tuned toward recall over precision.
+
+\textbf{Routing accuracy and temperature consistency.} Twenty-one prompts, six per use case plus three out-of-scope negative controls, were each run five times through the full anonymise-then-route pipeline, since the routing model runs at temperature 1.0 (Section~\ref{subsec:impl_ask_antares}) and a single pass cannot establish whether that setting produces run-to-run variation. Table~\ref{tab:routing_summary} reports the aggregate results; on this test set, at this prompt style and this system-prompt design, temperature 1.0 produced no observed run-to-run routing variance, a genuinely open question this component was built specifically to answer.
+
+\begin{table}[htbp]
+\centering
+\caption{Routing accuracy and consistency (21 prompts, N=5 repetitions, 105 trials)}
+\label{tab:routing_summary}
+\begin{tabular}{lr}
+\hline
+\textbf{Metric} & \textbf{Value} \\
+\hline
+Measured accuracy (log-diffing method) & 95.2\% (100/105) \\
+True accuracy (adjusted, see below) & $\sim$100\% (105/105) \\
+Prompts fully consistent across all 5 reps & 21/21 \\
+\hline
+\end{tabular}
+\end{table}
 
 The one measured discrepancy is not a routing failure, and reporting only 95.2\% would misstate what was actually found. One prompt, requesting a holiday ticket for a person with no \texttt{PULITO\_DA} cantiere assignment in the mock dataset, registered as zero correct out of five trials under the log-diffing detection method described in Section~\ref{subsec:usecases_spatial_flow}. Inspecting the response text directly shows Claude selected \texttt{report\_holiday\_request} correctly on every one of the five repetitions; the tool itself returned a legitimate business-logic failure message, since that person genuinely has no eligible cantiere, and that failure path exits \texttt{JobTools.ReportHolidayRequest} before the code that writes the use-case log file the detection method relies on. Log-diffing cannot distinguish a tool that was never invoked from one that was invoked and exited early, before logging: a blind spot in the observability method, not a defect in the routing decision it was measuring. True routing accuracy on this dataset is very likely 105 of 105, effectively 100\%; 95.2\% is what this specific black-box detection method measures, with its one discrepancy fully accounted for. Both figures are reported here together, rather than the raw 95.2\% alone, because the explanation is itself part of what the measurement found, not an excuse for it.
 
