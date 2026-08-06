@@ -1,0 +1,129 @@
+PROFESSOR FEEDBACK POINT 5: "Reframe the contribution and novelty"
+================================================================================
+
+Scope: reversible token mapping was framed as a differentiator in
+isolation (against OpenAI's Privacy Filter in the abstract, and implicitly
+against "rule-based detectors" in general in the Introduction). Confirmed
+during the earlier professor-response pass that this doesn't hold:
+Presidio supports reversible anonymisation through its own encrypt/decrypt
+operator pair, so reversibility per se is not this thesis's own property.
+Reworded both instances to move the contribution claim from "reversibility"
+in isolation to the end-to-end combination (local detection, reversible
+typed tokens, external semantic routing, deterministic server-side
+execution), per the professor's own suggested framing, and only where that
+framing is grounded in the systematic comparison background.tex already
+conducts, not asserted for free.
+
+Files touched: Impaginazione/inizio.tex, capitoli/Introduction.tex.
+File untouched: capitoli/background.tex — already states the Presidio
+reversible-operator fact correctly (see "already correct" note below).
+Files untouched: capitoli/architecture.tex, capitoli/Implementation.tex —
+neither makes a reversibility-as-novelty or exclusivity claim; both
+already describe GLiNER and Presidio as interchangeable inputs to the same
+token/reversibility mechanism, consistent with the corrected framing.
+
+================================================================================
+FILE: Impaginazione/inizio.tex
+CHAPTER/SECTION: Abstract
+================================================================================
+
+--- OLD ---
+The approach draws on the broader state of the art in privacy-preserving
+LLM infrastructure. In particular, OpenAI's Privacy Filter (Apache 2.0,
+2025), recently made open source, confirms that lightweight, on-premise
+NER models incorporated as pre-processing layers represent the emerging
+industry standard for PII containment. The key architectural contribution
+of this thesis relative to that reference model is \emph{reversibility}:
+whilst one-way encoding destroys the mapping between placeholders and
+entities, the token-based scheme proposed here preserves full operational
+correctness whilst allowing controlled de-anonymisation at the protocol
+boundary, a distinction relevant under Article 4.5 of the GDPR, which
+classifies such processing as pseudonymisation rather than anonymisation.
+
+--- NEW ---
+The approach draws on the broader state of the art in privacy-preserving
+LLM infrastructure. OpenAI's Privacy Filter (Apache 2.0, 2025), recently
+made open source, confirms that lightweight, on-premise NER models
+incorporated as pre-processing layers represent an emerging pattern for
+PII containment; it performs one-way redaction, however, discarding the
+mapping between placeholders and entities once masking is complete.
+Reversibility on its own is not unique to this work, Presidio supports it
+too, through a dedicated encrypt/decrypt operator pair. What this thesis
+contributes relative to that broader landscape is the combination: local
+detection, reversible typed tokens, external semantic routing, and
+deterministic server-side execution operating together end to end,
+preserving full operational correctness whilst allowing controlled
+de-anonymisation at the protocol boundary, a distinction relevant under
+Article 4.5 of the GDPR, which classifies such processing as
+pseudonymisation rather than anonymisation.
+
+--- WHY ---
+"The key architectural contribution... is reversibility" asserted
+reversibility itself as the differentiator without acknowledging Presidio
+also has it, so the claim didn't hold once checked. Kept the true part of
+the Privacy Filter comparison (it genuinely is one-way and discards the
+mapping), added the Presidio acknowledgment explicitly, and moved the
+actual contribution claim to the four-part combination. Also softened
+"the emerging industry standard" to "an emerging pattern" — one model
+release doesn't establish an industry standard.
+
+================================================================================
+FILE: capitoli/Introduction.tex
+CHAPTER/SECTION: Section 1.4, "Contributions" (opening sentence)
+================================================================================
+
+--- OLD ---
+This thesis makes three concrete contributions, positioned against the
+state of the art reviewed in Chapter~\ref{ch:background}: rule-based
+detectors and one-way redaction models each solve part of the
+PII-exposure problem, but neither preserves a path back to the real data
+once a routing decision has been made.
+
+--- NEW ---
+This thesis makes three concrete contributions, positioned against the
+state of the art reviewed in Chapter~\ref{ch:background}. Individually,
+rule-based PII detection, reversible token mapping, and LLM-based
+semantic routing are each established techniques on their own;
+Section~\ref{sec:background_sota} finds no reviewed system that combines
+local detection, reversible typed tokens, external semantic routing, and
+deterministic server-side execution end to end.
+
+--- WHY ---
+This was not just an overclaim but a factual error: "neither [rule-based
+detectors nor one-way redaction models] preserves a path back to the real
+data" is false for rule-based detectors specifically, since Presidio
+does preserve one via its operator pair. Replaced with the claim
+background.tex's own SOTA section (Section~\ref{sec:background_sota})
+actually earned through its five-system comparison (Presidio, GLiNER,
+Privacy Filter, Hou et al. 2025, Albanese et al. 2026): no reviewed system
+combines all four elements end to end. This is the professor's explicit
+instruction followed literally — "avoid claiming that no prior system
+provides this combination unless that conclusion follows from a more
+systematic review of the literature" — the claim now rests on the review
+that was actually done, not asserted independently of it.
+
+================================================================================
+ALREADY CORRECT — NOT EDITED
+FILE: capitoli/background.tex
+================================================================================
+
+Section 2.5.2 ("State of the Art in Secure LLM Orchestration"), the
+Presidio/GLiNER/Privacy Filter comparison, already states: "Reversibility
+separates them further. Presidio can be reversible in principle through a
+dedicated encrypt/decrypt operator pair, but that ties reversibility to
+key management external to the detection pipeline. GLiNER is a detector
+with no built-in notion of a token-to-entity mapping; reversibility, where
+it exists, is a property of the system built around it, not of GLiNER
+itself." This is exactly the distinction the professor raised, and it
+predates this feedback round — used as the calibration reference for both
+edits above, same as it was for points 2 and 4.
+
+================================================================================
+SUMMARY
+================================================================================
+
+2 edits across 2 files (abstract + Introduction's Contributions section).
+Smaller footprint than points 2 and 4: no claims in architecture.tex or
+Implementation.tex needed correction, and no new Discussion-chapter
+limitation was needed, since this point was a precision fix to an
+existing claim rather than a gap to confess. Build verified clean.

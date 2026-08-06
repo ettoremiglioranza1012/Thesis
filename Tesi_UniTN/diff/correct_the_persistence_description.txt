@@ -1,0 +1,232 @@
+PROFESSOR FEEDBACK POINT 4: "Correct the persistence description"
+================================================================================
+
+Scope: every "ephemeral"/"short-lived" claim about the Redis token-map
+context was factually wrong on the failure path (no TTL is configured;
+`Pop` only removes a mapping on the success path). Reworded to state the
+mechanism accurately (Pop-on-consumption is real) and name the gap
+explicitly (no TTL, so an errored/abandoned request's mapping persists
+indefinitely). Also flagged, for the first time anywhere in the thesis,
+that the per-request log files are themselves a persistent, unencrypted,
+access-uncontrolled PII record on local disk.
+
+Text-only pass: no code change. Adding a TTL to the Redis `Store` call was
+considered and explicitly deferred as optional, per direction — the
+thesis states the gap honestly instead of fixing it in the implementation.
+
+Policy change starting this pass: previously, limitations requiring new
+Chapter 6 (discussion.tex) prose were drafted but left uninserted, because
+that chapter was entirely `\iffalse`'d and chapter-writing was paused.
+From this point forward, when a rewording pass surfaces a limitation that
+belongs in the discussion chapter, it gets written in during that same
+pass rather than deferred. This pass is the first to do that: it opens
+discussion.tex with its chapter-level roadmap paragraph (required by the
+project's chapter-opening-paragraph convention, since this is the first
+prose the chapter has ever had) and un-`\iffalse`s Section 6.1 only,
+leaving 6.2-6.4 disabled until their own content is ready.
+
+Files touched: Impaginazione/inizio.tex, capitoli/architecture.tex,
+capitoli/Implementation.tex, capitoli/discussion.tex.
+
+================================================================================
+FILE: Impaginazione/inizio.tex
+CHAPTER/SECTION: Abstract
+================================================================================
+
+--- OLD ---
+Token-to-entity mappings are stored in a short-lived Redis context,
+ensuring that pseudonymisation is both ephemeral and fully reversible.
+
+--- NEW ---
+Token-to-entity mappings are stored in a Redis context and are fully
+reversible via server-side deanonymisation; no time-to-live is currently
+configured on that context, a prototype-scope limitation this thesis
+states explicitly rather than leaving implied.
+
+--- WHY ---
+"Short-lived"/"ephemeral" is only true when a request completes normally.
+Kept the "fully reversible" claim (true) and dropped the false
+persistence claim, replacing it with the actual fact.
+
+================================================================================
+FILE: capitoli/architecture.tex
+CHAPTER/SECTION: Section 3.1, "Architectural Principles: Privacy-by-Design"
+(End-to-end security bullet)
+================================================================================
+
+--- OLD ---
+\textbf{End-to-end security.} The token-to-entity mapping is stored in an
+ephemeral, session-scoped Redis context and consumed exactly once during
+server-side deanonymisation. No component persists PII beyond the minimum
+lifetime required for a single business operation. Operational reports
+written to disk by the \texttt{JobTools} layer stay on server-local
+storage and are never sent to the client.
+
+--- NEW ---
+\textbf{End-to-end security.} The token-to-entity mapping is stored in a
+session-scoped Redis context; on the path where a business operation
+completes, it is consumed exactly once during server-side deanonymisation
+and removed. That removal is not currently guaranteed independent of that
+path: no time-to-live is configured on the context, so a mapping tied to
+a request that errors out before deanonymisation persists in Redis
+indefinitely, a prototype-scope limitation discussed in
+Chapter~\ref{ch:discussion}. Operational reports written to disk by the
+\texttt{JobTools} layer, containing real names and phone numbers, stay on
+server-local storage and are never sent to the client, but are themselves
+a persistent, unencrypted record with no retention policy applied.
+
+--- WHY ---
+This is the Cavoukian "end-to-end security" principle bullet — the most
+consequential instance of the claim, since everything else inherits from
+it. Split the happy-path mechanism (real, accurate) from the actual
+guarantee (none, absent a TTL), and added the log-file persistence gap
+that was previously stated as fact but never flagged as a limitation.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.4, "High-Level System Architecture"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+Redis~\cite{redis2009} runs at port~55000 as the ephemeral context store.
+
+--- NEW ---
+Redis~\cite{redis2009} runs at port~55000 as the context store.
+
+--- WHY ---
+Minimal fix — the adjective wasn't load-bearing for the rest of the
+sentence (access-control description), just dropped it.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.6.1 (subsection title)
+--------------------------------------------------------------------------------
+
+--- OLD ---
+\subsection{Tokenisation and Ephemeral Context Storage}
+
+--- NEW ---
+\subsection{Tokenisation and Redis Context Storage}
+
+--- WHY ---
+A section heading asserting the disputed claim is worse than a sentence
+doing it — readers skim headings. Retitled to describe the mechanism
+without asserting its lifetime property.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.6.3, "Server-Side Deanonymisation and Tool
+Execution"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The full report, containing real names, phone numbers, distances, and
+status information, is written to a timestamped file in the server's
+local \texttt{logs/} directory. It is never transmitted to the client.
+
+--- NEW ---
+The full report, containing real names, phone numbers, distances, and
+status information, is written to a timestamped file in the server's
+local \texttt{logs/} directory. It is never transmitted to the client,
+though it remains on disk afterward as an unencrypted, retention-unmanaged
+record, the same limitation named in Section~\ref{sec:arch_privacy_by_design}.
+
+--- WHY ---
+The underlying fact was already accurate; it just wasn't connected to the
+persistence limitation named earlier in the chapter. Added the cross-
+reference so the two don't read as unrelated facts.
+
+================================================================================
+FILE: capitoli/Implementation.tex
+CHAPTER/SECTION: Section 4.2.3 (subsection title)
+================================================================================
+
+--- OLD ---
+\subsection{Deterministic Token Mapping and Ephemeral Context Storage}
+
+--- NEW ---
+\subsection{Deterministic Token Mapping and Redis Context Storage}
+
+--- WHY ---
+Same title fix as architecture.tex's parallel subsection.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.2.3, closing sentence
+--------------------------------------------------------------------------------
+
+--- OLD ---
+Server-side deanonymisation always uses \texttt{Pop}, not \texttt{Get}, so
+a context can be consumed exactly once. This is a direct implementation of
+the end-to-end security principle from Chapter~\ref{ch:architecture}: the
+mapping does not simply expire eventually, it stops existing the instant
+it has served its one legitimate purpose.
+
+--- NEW ---
+Server-side deanonymisation always uses \texttt{Pop}, not \texttt{Get}, so
+a context is removed the instant it is actually consumed, rather than
+lingering after it has served its purpose. That guarantee covers only the
+path where \texttt{Pop} is actually called: no time-to-live is configured
+on the Redis context itself, so a request that errors out before
+deanonymisation, or a client session that is never completed, leaves its
+mapping in Redis with no expiry. This is a deliberate scope decision
+rather than an oversight, discussed in full in Chapter~\ref{ch:discussion}:
+the system runs as a local proof of concept, with no persistence volume
+mounted on Redis, so every mapping is cleared the moment the process stops
+regardless, and what the internship needed to demonstrate was that
+pseudonymisation and its MCP-based orchestration work correctly end to
+end, not a production-grade retention policy.
+
+--- WHY ---
+This was the single worst-offending sentence in the thesis on this point:
+"the mapping does not simply expire eventually, it stops existing the
+instant it has served its one legitimate purpose" is true only on the
+happy path, and actively wrong on the failure path (it does simply
+persist indefinitely, exactly the "eventually" framing it denies). Fully
+rewritten to state the real mechanism, the real gap, and the reasoning
+behind not closing it, matching the PoC-scope justification given to the
+supervisor.
+
+================================================================================
+FILE: capitoli/discussion.tex
+CHAPTER/SECTION: New chapter-opening paragraph + Section 6.1, "Security
+vs. Complexity Trade-offs" (first prose ever written in this chapter)
+================================================================================
+
+--- OLD ---
+[Chapter had no prose. Opened directly with `\iffalse`, wrapping all four
+sections including Section 6.1, whose only content was the placeholder
+comment "% Write your text here analysing the trade-offs between the
+security guarantees introduced by the anonymization pipeline and the
+additional architectural complexity it imposes".]
+
+--- NEW ---
+[Chapter now opens with a roadmap paragraph naming all four sections, per
+the project's chapter-opening-paragraph convention. Section 6.1 is
+un-`\iffalse`'d and contains two paragraphs: the first states the two
+persistence gaps (Redis TTL, log-file retention/encryption) with cross-
+references to where each mechanism is described in Chapters 3 and 4; the
+second explains why neither was addressed during the internship (local
+PoC, no Redis persistence volume, scope was demonstrating pseudonymisation
++ MCP orchestration, not production retention hygiene) and what closing
+the gap would actually require (TTL, retention/deletion policy, encryption
+at rest — explicitly framed as operational hardening, not an architecture
+redesign). Sections 6.2-6.4 remain `\iffalse`'d, unchanged.]
+
+--- WHY ---
+Every forward reference to Chapter~\ref{ch:discussion} added during this
+pass (in inizio.tex, architecture.tex, and Implementation.tex above) now
+resolves to real content instead of an empty, disabled chapter. This is
+the first application of the new policy: write Chapter 6 content
+incrementally, during the same pass that motivates it, rather than
+deferring every limitations paragraph to an unscheduled future session.
+
+================================================================================
+SUMMARY
+================================================================================
+
+8 edits across 3 already-written chapters plus the abstract, plus new
+prose in Chapter 6 (previously entirely unwritten): a chapter-opening
+paragraph and a two-paragraph Section 6.1. No code changes — the TTL fix
+was considered and explicitly left as future work, stated as such in the
+new discussion.tex prose. Build verified clean after this pass.

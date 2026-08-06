@@ -1,0 +1,530 @@
+PROFESSOR FEEDBACK POINT 2: "Narrow the privacy claims"
+================================================================================
+
+Scope: reworded every absolute/guaranteed-privacy claim ("formal guarantee",
+"invariant", "structurally impossible", "physically absent", "never",
+"under any circumstance") into language describing the system's protection
+as a design objective that depends on successful entity detection, not an
+achieved guarantee.
+
+Out of scope for this pass (left untouched, will be handled under their own
+points later): Redis TTL / "ephemeral" wording (point 4), "production" vs
+"prototype" framing (point 7), deterministic-execution-vs-correctness
+framing (point 6). Several sentences mixed multiple issues; where a full
+sentence could not be split cleanly along point-2 lines without touching
+those other points, it was left untouched and is noted below as DEFERRED.
+
+Files touched: Impaginazione/inizio.tex, capitoli/Introduction.tex,
+capitoli/architecture.tex, capitoli/Implementation.tex.
+File untouched: capitoli/background.tex — already correctly hedges the
+privacy-guarantee claim (see "already correct" note at the end).
+
+================================================================================
+FILE: Impaginazione/inizio.tex
+CHAPTER/SECTION: Abstract
+================================================================================
+
+--- OLD ---
+This thesis investigates how LLM-based orchestration can be implemented in a
+real-world business context, whilst providing a formal guarantee that no
+personally identifiable information (PII) crosses the boundaries of an
+external model.
+
+--- NEW ---
+This thesis investigates how LLM-based orchestration can be implemented in a
+real-world business context, through an architecture designed to keep
+personally identifiable information (PII) from crossing the boundaries of an
+external model in cleartext, a design objective rather than a formal
+guarantee, since entity detection is probabilistic.
+
+--- WHY ---
+This was the exact phrase the professor quoted back as unsupportable
+("The current system cannot support the claim of a formal guarantee that no
+PII ever reaches the LLM"). Highest-priority fix, first sentence a reader
+sees about the system.
+
+--------------------------------------------------------------------------------
+
+RESOLVED during the point-7 pass (see clarify_the_prototype_scope.txt):
+Abstract, "The validation confirms that the accuracy of semantic routing
+and NER performance on Italian-language inputs are sufficient for
+enterprise deployment and that no raw PII is observable within the
+boundaries of the tested LLM context." This sentence entangled point 2
+(privacy guarantee), point 1 (claims validation results that don't exist),
+and point 7 ("enterprise deployment" / production framing), and stayed
+deferred across three passes waiting on point 1's pipeline outcome. Closed
+using the agnostic-framing technique established after this pass's own
+correction: rather than promising a specific validation result, the
+rewrite points to Chapter 5 to state what was and was not measured, true
+whether or not the pipeline lands.
+
+DEFERRED (not edited this pass): Abstract, "Token-to-entity mappings are
+stored in a short-lived Redis context, ensuring that pseudonymisation is
+both ephemeral and fully reversible." The "ephemeral"/"short-lived" claim is
+point 4's territory (no TTL is actually configured); left for that pass.
+
+================================================================================
+FILE: capitoli/Introduction.tex
+CHAPTER/SECTION: Section 1.2, "The Problem of Data Privacy in LLM Integration"
+================================================================================
+
+--- OLD ---
+The chapters that follow show that the answer is not to avoid PII exposure
+through policy or through trust in a vendor's data handling terms, but to
+make exposure structurally impossible: replace every identifying value with
+a reversible token before the request reaches the model, and restore the
+original values only inside the company's own trusted boundary, at the
+point where the business operation actually executes.
+
+--- NEW ---
+The chapters that follow show that the answer is not to avoid PII exposure
+through policy or through trust in a vendor's data handling terms, but to
+reduce that exposure by design: replace every identifying value with a
+reversible token before the request reaches the model, and restore the
+original values only inside the company's own trusted boundary, at the
+point where the business operation actually executes.
+
+--- WHY ---
+"Structurally impossible" overclaims; the mechanism reduces exposure, it
+does not eliminate the possibility of it (a missed entity still passes
+through).
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 1.3, "Research Objectives and Questions"
+--------------------------------------------------------------------------------
+
+--- OLD (clause within a longer sentence) ---
+no personally identifiable information may cross into the model's context
+under any circumstance
+
+--- NEW ---
+the architecture must minimise, by design, the risk that personally
+identifiable information crosses into the model's context
+
+--- WHY ---
+"Under any circumstance" is an absolute condition the current implementation
+cannot support (client-side bypass path, probabilistic detection).
+
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The first question is architectural: what division of responsibility
+between client, anonymisation layer, LLM, and business-logic server makes
+PII exposure structurally impossible rather than merely policy-forbidden.
+
+--- NEW ---
+The first question is architectural: what division of responsibility
+between client, anonymisation layer, LLM, and business-logic server
+structurally minimises PII exposure rather than merely forbidding it by
+policy.
+
+--- WHY ---
+Same "structurally impossible" issue as above, reframed as minimisation
+rather than elimination.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 1.4, "Contributions"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+\textbf{A privacy-by-design MCP architecture.} It presents a four-service
+system, an anonymisation API, a GLiNER-based NER microservice, an MCP
+server, and an MCP client, structured so that the single architectural
+invariant (no PII crosses the LLM boundary in cleartext) is enforced by the
+topology of the system rather than by a policy the model is merely asked to
+follow.
+
+--- NEW ---
+\textbf{A privacy-by-design MCP architecture.} It presents a four-service
+system, an anonymisation API, a GLiNER-based NER microservice, an MCP
+server, and an MCP client, structured so that the central design objective,
+keeping PII out of the LLM's context in cleartext, is pursued through the
+topology of the system rather than left to a policy the model is merely
+asked to follow.
+
+--- WHY ---
+"Architectural invariant... is enforced" implies a guaranteed property that
+always holds; the system pursues this objective structurally, but it is not
+a proven invariant.
+
+================================================================================
+FILE: capitoli/architecture.tex
+CHAPTER/SECTION: Chapter-opening paragraph
+================================================================================
+
+--- OLD ---
+This chapter presents the architecture of Antares AI, a privacy-preserving
+LLM orchestration system for enterprise workforce management.
+Chapter~\ref{ch:introduction} and Chapter~\ref{ch:background} set out the
+problem this architecture answers: an LLM has to route natural-language
+workforce requests without ever seeing the personal data those requests
+refer to. The design that follows is organised around one central
+invariant, no personally identifiable information crosses the LLM context
+boundary in cleartext, and most of the decisions described in this chapter
+follow from what it takes to hold that invariant in practice.
+
+--- NEW ---
+This chapter presents the architecture of Antares AI, a privacy-oriented
+LLM orchestration system for enterprise workforce management.
+Chapter~\ref{ch:introduction} and Chapter~\ref{ch:background} set out the
+problem this architecture answers: an LLM has to route natural-language
+workforce requests without seeing the personal data those requests refer
+to. The design that follows is organised around one central objective,
+keeping personally identifiable information out of the LLM context
+boundary in cleartext, and most of the decisions described in this chapter
+follow from what it takes to pursue that objective in practice, given that
+entity detection is probabilistic rather than certain.
+
+--- WHY ---
+"Privacy-preserving" -> "privacy-oriented" adopts the professor's own
+suggested framing ("the thesis should describe the system as a
+privacy-oriented prototype"). "Invariant... hold that invariant" ->
+"objective... pursue that objective", with an explicit new clause naming
+why: detection is probabilistic, not certain. Also dropped "ever" as an
+absolutist adverb.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.1, "Architectural Principles: Privacy-by-Design"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+\textbf{Privacy embedded into design.} PII isolation is not achieved
+through audit logging, access controls, or post-hoc output redaction. It
+is structural: by placing the anonymisation service at the architectural
+boundary, PII is physically absent from the data that crosses it, so there
+is nothing for the model to leak in the first place.
+
+--- NEW ---
+\textbf{Privacy embedded into design.} PII isolation is not achieved
+through audit logging, access controls, or post-hoc output redaction. It
+is structural: the anonymisation service sits at the architectural
+boundary and replaces detected PII with tokens before any request reaches
+the model, so the model is not deliberately given identifying data to work
+with. This protection holds only for entities the detection layer actually
+finds; an entity it fails to catch is never tokenised and passes through
+unchanged, a risk Chapter~\ref{ch:usecases} quantifies against measured
+detection performance.
+
+--- WHY ---
+This was the single most literally false claim in the thesis: "PII is
+physically absent from the data that crosses it" is only true when
+detection succeeds. Added the explicit false-negative caveat and a forward
+reference to Chapter 5, where the quantitative pipeline (in progress) will
+report the actual false-negative rate. (Note: referenced
+\ref{ch:usecases}, the chapter label, not the disabled
+\label{sec:usecases_validation} inside the current \iffalse block in
+Validation.tex, to avoid a broken reference until that section is
+un-disabled.)
+
+--------------------------------------------------------------------------------
+
+--- OLD ---
+Together these constraints define the \emph{architectural invariant}: PII
+may exist in the system, but only within the server's trusted execution
+boundary, and only for the duration of one business operation.
+
+--- NEW ---
+Together these constraints define the \emph{architectural design
+objective}: PII should exist in the system only within the server's
+trusted execution boundary, and only for the duration of one business
+operation.
+
+--- WHY ---
+Same invariant -> objective correction; "may exist... only within" ->
+"should exist... only within" (should, not a guaranteed may/must).
+
+--------------------------------------------------------------------------------
+
+DEFERRED (not edited this pass): same section, "End-to-end security" bullet
+-- "stored in an ephemeral, session-scoped Redis context and consumed
+exactly once" and "No component persists PII beyond the minimum lifetime
+required". Both claims are contradicted by the no-TTL fact and belong to
+point 4, not point 2.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.3, "Functional and Non-Functional Requirements"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The privacy invariant from Section~\ref{sec:arch_privacy_by_design} sets
+the hard limit: no PII may cross the LLM context boundary in cleartext,
+under any request pattern.
+
+--- NEW ---
+The privacy objective from Section~\ref{sec:arch_privacy_by_design} sets
+the design target: PII should not cross the LLM context boundary in
+cleartext, for any request pattern the anonymisation layer correctly
+handles.
+
+--- WHY ---
+"Under any request pattern" (unconditional) -> "for any request pattern
+the anonymisation layer correctly handles" (conditional on detection
+succeeding).
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.4, "High-Level System Architecture"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The architectural invariant (no PII crosses the MCP boundary) is enforced
+at the interface between client and server. The \texttt{ask\_antares} tool
+accepts an anonymised prompt and a \texttt{contextId}; it never receives
+raw PII.
+
+--- NEW ---
+The architectural design objective (keeping PII out of the MCP boundary)
+is pursued at the interface between client and server. The
+\texttt{ask\_antares} tool is designed to accept only an anonymised prompt
+and a \texttt{contextId}; whether it in fact receives raw PII depends on
+the anonymisation layer having detected it upstream.
+
+--- WHY ---
+"It never receives raw PII" is false whenever GLiNER misses an entity;
+reworded to state the design intent and name the actual dependency.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 3.6.3, "Server-Side Deanonymisation and Tool
+Execution" (closing paragraph of the data-flow trace)
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The client receives a short text block with no PII. The invariant holds
+across the entire lifecycle: no personally identifiable information
+crossed the MCP boundary, and a complete, accurate operational result was
+produced server-side.
+
+--- NEW ---
+The client receives a short text block with no PII. For this trace, no
+personally identifiable information crossed the MCP boundary, and a
+complete, accurate operational result was produced server-side;
+Chapter~\ref{ch:usecases} reports how often that holds across a larger,
+measured set of requests rather than a single worked example.
+
+--- WHY ---
+This sentence generalised a system-wide "invariant" from one successful
+worked example. Reworded to scope the claim to this specific trace and
+point to Chapter 5 for the aggregate, measured answer.
+
+--------------------------------------------------------------------------------
+
+NOTE: worked-example narration lines elsewhere in Section 3.6 (e.g. "no PII
+is in transit", "No PII is in the response") were left untouched. Those
+describe what happens in this one specific, successfully-detected trace,
+not a general system property, so they are not the kind of absolute claim
+point 2 objects to.
+
+================================================================================
+FILE: capitoli/Implementation.tex
+CHAPTER/SECTION: Chapter-opening paragraph
+================================================================================
+
+--- OLD ---
+Chapter~\ref{ch:architecture} defined the architectural invariant that
+governs Antares AI: no personally identifiable information crosses the LLM
+context boundary in cleartext. This chapter shows how that invariant is
+realised in running code.
+
+--- NEW ---
+Chapter~\ref{ch:architecture} defined the architectural design objective
+that governs Antares AI: keeping personally identifiable information out
+of the LLM context boundary in cleartext. This chapter shows how that
+objective is pursued in running code.
+
+--- WHY ---
+Consistency with the corresponding fix in architecture.tex's own opening
+paragraph.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.3, "Exposing Business Operations via MCP"
+(section-opening paragraph)
+--------------------------------------------------------------------------------
+
+--- OLD (clause within a longer sentence) ---
+Section~\ref{subsec:impl_prompting} covers how that entry point's system
+prompt enforces the privacy invariant at the one place the model's
+behaviour cannot be checked by a type system.
+
+--- NEW ---
+Section~\ref{subsec:impl_prompting} covers how that entry point's system
+prompt supports the privacy objective at the one place the model's
+behaviour cannot be checked by a type system.
+
+--- WHY ---
+"Enforces the privacy invariant" -> "supports the privacy objective";
+also more accurate given the very next section explicitly frames the
+system prompt as a mitigation, not an enforcement mechanism.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.3.3, "Strict Prompting for Privacy Enforcement"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+The system prompt inside \texttt{AskAntares} is the one point in the
+architecture where privacy enforcement is a matter of instruction rather
+than structural guarantee, and it is worth being explicit about why that
+gap exists. Every component upstream of Claude, the anonymisation
+pipeline, the token substitution, the Redis-backed context store,
+structurally prevents PII from reaching the model, per the
+privacy-by-design argument of Section~\ref{sec:arch_privacy_by_design}.
+Claude itself, however, is not code the project controls; it can only be
+instructed, not verified line by line the way \texttt{JobTools} can.
+
+--- NEW ---
+The system prompt inside \texttt{AskAntares} is the one point in the
+architecture where privacy enforcement is a matter of instruction rather
+than structural design, and it is worth being explicit about why that gap
+exists. Every component upstream of Claude, the anonymisation pipeline,
+the token substitution, the Redis-backed context store, is designed to
+keep PII from reaching the model, per the privacy-by-design argument of
+Section~\ref{sec:arch_privacy_by_design}, though that protection still
+depends on the detection layer having correctly identified the entity in
+the first place. Claude itself, however, is not code the project
+controls; it can only be instructed, not verified line by line the way
+\texttt{JobTools} can.
+
+--- WHY ---
+"Structurally prevents PII from reaching the model" is the same
+"physically absent"-style overclaim as in architecture.tex; added the same
+detection-dependency caveat.
+
+--------------------------------------------------------------------------------
+
+--- OLD ---
+What actually limits the damage is upstream of the prompt entirely: Claude
+never has real PII in its context to leak in the first place.
+\texttt{JobTools} deanonymises parameters and queries real data only after
+Claude has already selected a tool and returned its arguments; the
+sub-tool's return value back to Claude is always the same hardcoded
+success string, never the report it just generated, and that report,
+containing real names and phone numbers, is written to a server-local log
+file Claude has no access to. A misbehaving model has no sensitive data
+available to misuse, regardless of what the system prompt tells it to do
+with data it was never given.
+
+--- NEW ---
+What actually limits the damage is upstream of the prompt entirely: as
+long as the anonymisation layer correctly detected the entities in a
+given request, Claude has no real PII in its context to leak.
+\texttt{JobTools} deanonymises parameters and queries real data only after
+Claude has already selected a tool and returned its arguments; the
+sub-tool's return value back to Claude is always the same hardcoded
+success string, never the report it just generated, and that report,
+containing real names and phone numbers, is written to a server-local log
+file Claude has no access to. For any request where detection succeeded, a
+misbehaving model would have no sensitive data available to misuse,
+regardless of what the system prompt tells it to do with data it was never
+given.
+
+--- WHY ---
+Two absolute "never"/"has no sensitive data" claims in the same paragraph,
+both conditioned on detection succeeding. This paragraph already had the
+right spirit ("These constraints are a mitigation, not a proof" is
+untouched, one sentence earlier) — these two sentences were the remaining
+gap between that stated spirit and the actual wording.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.4, "Use Case Orchestration in JobTools"
+(section-opening paragraph)
+--------------------------------------------------------------------------------
+
+--- OLD ---
+Steps one and five are where the architectural invariant from
+Chapter~\ref{ch:architecture} is enforced in practice, not just steps two
+through four where the actual business logic happens.
+
+--- NEW ---
+Steps one and five are where the architectural design objective from
+Chapter~\ref{ch:architecture} is pursued in practice, not just steps two
+through four where the actual business logic happens.
+
+--- WHY ---
+Same invariant/enforced -> objective/pursued correction, consistent with
+every other instance.
+
+================================================================================
+ALREADY CORRECT — NOT EDITED
+FILE: capitoli/background.tex
+================================================================================
+
+Two passages already state the point-2 caveat correctly and were used as
+the calibration reference for every rewording above, rather than being
+edited themselves:
+
+1. Section 2.3.1, PII definitions: "A system that replaces PII with
+   reversible tokens before sending data to an external model provider is
+   performing pseudonymisation, not anonymisation. The privacy guarantee
+   it provides is a limitation of PII exposure to the model, not its
+   elimination."
+
+2. Section 2.3.3, NER for data masking: "A false negative (a missed PII
+   span) directly violates the privacy guarantee: the unmasked entity
+   crosses the model boundary in plaintext... This asymmetry implies that
+   detection components should be optimised for recall."
+
+================================================================================
+CORRECTION PASS — agnosticity fix (2026-08-05, follow-up)
+================================================================================
+
+Methodology adopted after point 2 for points 2/4/5/7 and half of point 6:
+rewordings must be agnostic to whether the quantitative validation pipeline
+(point 1) ever gets built — any forward reference to Chapter 5 must hold
+true whether the pipeline succeeds or not. Reviewing point 2's own edits
+against that rule found two that failed it: both were forward references
+*added* during the point-2 pass (not pre-existing text), and both
+presupposed the pipeline succeeding.
+
+FILE: capitoli/architecture.tex, Section 3.1 ("Privacy embedded into
+design" bullet)
+
+--- OLD (point-2 pass) ---
+...a risk Chapter~\ref{ch:usecases} quantifies against measured detection
+performance.
+
+--- NEW (corrected) ---
+...a risk Chapter~\ref{ch:usecases} addresses directly, whether by
+reporting measured detection performance or by stating explicitly that
+such measurement was not carried out.
+
+--- WHY ---
+"Quantifies" only holds if the pipeline lands; the corrected version is
+true either way.
+
+--------------------------------------------------------------------------------
+
+FILE: capitoli/architecture.tex, Section 3.6.3 (closing sentence of the
+data-flow trace)
+
+--- OLD (point-2 pass) ---
+...Chapter~\ref{ch:usecases} reports how often that holds across a larger,
+measured set of requests rather than a single worked example.
+
+--- NEW (corrected) ---
+...Chapter~\ref{ch:usecases} addresses how consistently that holds beyond
+this single worked example, whether through measured results or as an
+acknowledged limitation of the validation carried out.
+
+--- WHY ---
+Same fix: "reports how often" presupposes a number exists; the corrected
+version commits only to Chapter 5 addressing the question, not to a
+specific kind of answer.
+
+================================================================================
+SUMMARY
+================================================================================
+
+16 edits across 4 files (abstract + 3 chapters), plus 2 follow-up
+corrections to bring point 2's own forward references in line with the
+pipeline-agnosticity principle adopted after this pass. 3 sentences
+deliberately deferred because they entangle point 2 with points 1, 4, or 7
+and cannot be partially fixed without leaving the sentence incoherent;
+noted inline above so they aren't lost when those points are addressed.
+background.tex required no changes.

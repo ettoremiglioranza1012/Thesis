@@ -1,0 +1,138 @@
+PROFESSOR FEEDBACK POINT 6: "Distinguish deterministic execution from correctness"
+================================================================================
+
+Mode: generic Plan-B phrasing, applied now, independent of whether the
+quantitative validation pipeline (point 1) ends up happening. If the
+pipeline does land, the routing-accuracy/consistency numbers it produces
+get added on top of this disclosure later — this edit is not meant to be
+replaced, only supplemented.
+
+Scope note: only the "temperature 1.0 is never disclosed" gap was fixed
+this pass. The chapter-6 (Discussion) limitations paragraph proposed
+alongside this — spelling out that typed schemas guarantee format, not
+tool-selection or parameter-extraction correctness — was deliberately NOT
+written, because Chapter 6 is still fully unwritten (wrapped in
+\iffalse end to end) and chapter-writing is paused per an earlier
+instruction this session. Flagging it here so it isn't lost: it should be
+added to discussion.tex once chapter-writing resumes, referenced from the
+same \ref{ch:discussion} forward-reference this edit already introduces.
+
+File touched: capitoli/Implementation.tex, Section 4.3.2 ("The
+ask_antares Routing Tool").
+
+================================================================================
+FILE: capitoli/Implementation.tex
+CHAPTER/SECTION: Section 4.3.2, "The ask_antares Routing Tool"
+================================================================================
+
+--- OLD ---
+It then calls \texttt{IChatClient.GetResponseAsync()}, the .NET binding
+for Claude's schema-driven tool-use contract~\cite{anthropic2024tooluse},
+with function invocation enabled and the sub-tool list attached, and
+returns Claude's response text unmodified.
+
+--- NEW ---
+It then calls \texttt{IChatClient.GetResponseAsync()}, the .NET binding
+for Claude's schema-driven tool-use contract~\cite{anthropic2024tooluse},
+with function invocation enabled and the sub-tool list attached, and
+returns Claude's response text unmodified. The call runs at temperature
+1.0, a configuration value set during initial setup and left unchanged;
+because sampling at that temperature is not deterministic, repeated
+invocations of the same anonymised prompt are not guaranteed to select
+the same sub-tool or extract identical parameters, which
+Chapter~\ref{ch:discussion} identifies as a methodological limitation of
+the validation carried out in this thesis.
+
+--- WHY ---
+None of the four already-written chapters mentioned the routing model's
+temperature setting anywhere (confirmed by grep across Introduction,
+architecture, Implementation, and the abstract). appsettings.json sets
+Temperature: 1.0, which means the same prompt is not guaranteed to route
+identically across repeated calls. Silently not mentioning this reads as
+an implicit claim that routing is stable; naming it explicitly, with a
+forward pointer to where it's addressed as a limitation, closes that gap
+without requiring the pipeline to exist first.
+
+================================================================================
+FOLLOW-UP PASS (2026-08-06): schema-vs-correctness half, now applied
+================================================================================
+
+The paragraph below was originally deferred (see prior version of this
+log) because Chapter 6 was entirely \iffalse'd and chapter-writing was
+paused. Both conditions changed during the point-4 pass: the pause on
+Chapter 6 specifically was lifted (limitations get written in during the
+pass that motivates them, not deferred wholesale), and §6.1 already
+exists with real prose. This half of point 6 didn't get swept up into
+that pass, so it's closed out separately here.
+
+Rather than fold it into §6.1 ("Security vs. Complexity Trade-offs",
+point 4's content), it got its own new section, since routing/execution
+correctness is a different axis from the privacy/persistence guarantees
+§6.1 covers, and conflating "we didn't encrypt the logs" with "we didn't
+test routing accuracy" under one security-themed heading would blur two
+distinct limitations.
+
+FILE: capitoli/discussion.tex
+CHAPTER/SECTION: new Section 6.2, "Validation Methodology Limitations"
+(inserted between §6.1 and the still-\iffalse'd "Moving from Mock
+Providers to Production Databases" section)
+
+--- OLD ---
+[Did not exist. Chapter opening paragraph named only 4 sections.]
+
+--- NEW ---
+Chapter-opening paragraph gained one sentence naming the new section:
+"Section~\ref{sec:discussion_validation_limitations} separates what typed
+schemas and deterministic code actually guarantee from what was measured,
+and names the routing model's temperature setting as an open
+methodological question rather than an implicit assumption."
+
+New section, two paragraphs:
+
+  "Two claims elsewhere in this thesis rest on single-pass evidence
+  rather than systematic measurement, and it is worth stating that
+  distinction plainly rather than leaving it implied. Typed tool schemas
+  (Section~\ref{subsec:impl_csharp_reflection}) guarantee that a call
+  Claude makes is well-formed, a valid tool name with parameters of the
+  right type. They guarantee nothing about whether that call was the
+  right one. Whether Claude selected the correct sub-tool for a given
+  request, or extracted the correct parameter from an anonymised prompt,
+  is a separate question no schema can answer, and no systematic test
+  suite in this thesis answers it either: the worked examples in
+  Chapter~\ref{ch:usecases} show each use case executing correctly once,
+  not routing accuracy measured across a representative set of Italian
+  prompts.
+
+  The same gap compounds with a second one. \texttt{AskAntares} calls
+  Claude at temperature 1.0 (Section~\ref{subsec:impl_ask_antares}), a
+  sampling setting under which the same prompt is not guaranteed to
+  produce the same output on repeated calls. A single successful trace,
+  of the kind Chapter~\ref{ch:usecases} presents, says nothing about
+  whether that same prompt would route identically on a second or third
+  attempt. Establishing routing accuracy as a general property of the
+  system, rather than a property observed once per use case, would
+  require running each test prompt multiple times and reporting both the
+  correctness of each run and the consistency across runs, which this
+  thesis did not do."
+
+--- WHY ---
+Closes the schema-format-vs-correctness half of point 6 that the
+temperature-disclosure edit above never covered. Written to be agnostic
+to whether the point-1 pipeline lands: it states plainly that systematic
+measurement was not performed, rather than promising it will appear
+without committing to that outcome. If the pipeline does succeed, this
+section gets real numbers added on top of it, not replaced — the
+methodological point (schemas ≠ correctness, temperature ≠ determinism)
+remains true and worth stating either way.
+
+================================================================================
+DEPENDENCY CARRIED OVER FROM POINT 2
+================================================================================
+
+architecture.tex line ~166 (from the point-2 pass) already forward-
+references Chapter 5 for "how often [the privacy invariant] holds across a
+larger, measured set of requests." That sentence and this one share the
+same fate: both are honest as forward references to an unwritten chapter
+today, and both need to be reconciled with whatever Chapter 5 actually
+ends up containing — real pipeline numbers, or an explicit statement that
+systematic measurement was not performed — when that chapter is written.

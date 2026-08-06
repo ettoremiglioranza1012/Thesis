@@ -1,0 +1,203 @@
+PROFESSOR FEEDBACK POINT 7: "Clarify the prototype scope"
+================================================================================
+
+Scope: consistently distinguish Antares AI (a prototype validated against
+a mock backend) from "production" language, and stop implying the
+one-line dependency-injection swap is the whole migration to a real
+backend. Grepped all four already-written chapters plus the abstract for
+"production"/deployment-readiness language first; most existing usage was
+already careful (e.g. "the production Miorelli database" correctly refers
+to the real, external system, not to Antares AI itself). Five edits found
+and applied; several other "production" hits reviewed and left alone
+because they were already correctly scoped (see ALREADY CORRECT section).
+
+Files touched: Impaginazione/inizio.tex, capitoli/Implementation.tex,
+capitoli/architecture.tex.
+File untouched: capitoli/background.tex — its "production-quality" and
+"enterprise deployments" language describes external systems and general
+literature, not Antares AI's own scope.
+
+================================================================================
+FILE: Impaginazione/inizio.tex
+CHAPTER/SECTION: Abstract (contributions + validation-summary sentence)
+================================================================================
+
+--- OLD ---
+The thesis makes three concrete contributions: (1) a multi-service
+architecture that structurally isolates sensitive data from the LLM
+context, (2) a deterministic and reversible privacy layer based on token
+mapping that preserves the correctness of business logic throughout the
+entire request lifecycle, and (3) a validated set of realistic workforce
+management use cases demonstrating the effectiveness of the approach in a
+representative production environment. The validation confirms that the
+accuracy of semantic routing and NER performance on Italian-language
+inputs are sufficient for enterprise deployment and that no raw PII is
+observable within the boundaries of the tested LLM context.
+
+--- NEW ---
+The thesis makes three concrete contributions: (1) a multi-service
+architecture that structurally isolates sensitive data from the LLM
+context, (2) a deterministic and reversible privacy layer based on token
+mapping that preserves the correctness of business logic throughout the
+entire request lifecycle, and (3) a set of realistic workforce management
+use cases exercised end to end against a mock dataset standing in for the
+production Miorelli backend. The system described throughout this thesis
+is a validated prototype rather than a production deployment.
+Chapter~\ref{ch:usecases} traces each use case in detail and states
+plainly what was, and was not, measured about semantic routing accuracy,
+NER performance, and residual PII in the payload reaching the LLM.
+
+--- WHY ---
+THIS IS THE SENTENCE FLAGGED AS DEFERRED IN THE POINT-2 DIFF LOG
+(narrow_the_privacy_claims.txt), entangled across points 1, 2, and 7 at
+once: "a representative production environment" / "sufficient for
+enterprise deployment" (point 7), "the validation confirms... no raw PII
+is observable" (points 1 and 2 — a validation-results claim that doesn't
+exist, stated as an absolute privacy guarantee). It stayed unresolved
+across three passes because point 1 (the quantitative pipeline) is still
+pending externally, and a full fix seemed to require its outcome. The
+agnostic-framing technique adopted after point 2's own correction pass
+dissolves that dependency: the rewrite doesn't promise a specific
+validation outcome, it points to Chapter 5 to state "what was, and was
+not, measured", true whether or not the pipeline lands. Combined with
+dropping "production environment"/"enterprise deployment" and adding the
+explicit "validated prototype rather than a production deployment"
+statement, this closes the point-7 slice and finally resolves the
+three-point-old DEFERRED item in one edit.
+
+CROSS-REFERENCE: narrow_the_privacy_claims.txt has been updated to mark
+this DEFERRED item as resolved, pointing here.
+
+================================================================================
+FILE: capitoli/Implementation.tex
+CHAPTER/SECTION: Chapter-opening paragraph
+================================================================================
+
+--- OLD ---
+...from an early Presidio-based prototype to the GLiNER-based system in
+production.
+
+--- NEW ---
+...from an early Presidio-based prototype to the GLiNER-based system now
+in use.
+
+--- WHY ---
+"In production" here meant "currently deployed/running", not a claim
+about production maturity, but the word choice contradicts the
+consistency the professor asked for. Swapped for language that doesn't
+use "production" for anything that isn't the real external Miorelli
+system.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.2.2, "The Pivot to GLiNER for Multilingual
+Italian NER"
+--------------------------------------------------------------------------------
+
+--- OLD ---
+In production, the Anonymisation Service calls this endpoint with a
+threshold of 0.45, set during initial configuration and left unchanged
+rather than arrived at through a systematic sweep.
+
+--- NEW ---
+In the current configuration, the Anonymisation Service calls this
+endpoint with a threshold of 0.45, set during initial configuration and
+left unchanged rather than arrived at through a systematic sweep.
+
+--- WHY ---
+Same fix as above — "production" swapped for language describing the
+current, running configuration without implying production deployment.
+
+--------------------------------------------------------------------------------
+
+CHAPTER/SECTION: Section 4.5.3, "NSwag Client Generation and the
+Migration Path" (closing sentence)
+--------------------------------------------------------------------------------
+
+--- OLD ---
+This is the payoff of Section~\ref{subsec:impl_miorelli_interface}'s
+abstraction: the cost of deferring backend integration was paid once, in
+designing the interface correctly, rather than being owed again at the
+point the real system finally arrives.
+
+--- NEW ---
+This is the payoff of Section~\ref{subsec:impl_miorelli_interface}'s
+abstraction: the cost of deferring backend integration was paid once, in
+designing the interface correctly, rather than being owed again at the
+point the real system finally arrives. That one-line swap is necessary
+for the migration, not sufficient for it: writing
+\texttt{AntaresMiorelliClient} itself, propagating the real caller's
+identity instead of the hardcoded fallback in \texttt{IdentityTools}
+(Section~\ref{subsec:impl_ask_antares}), authentication, role-based
+access control, integration testing against the real tenant, and the
+operational hardening any of that would require, all remain open work
+the abstraction does not do for free. Antares AI, throughout this thesis,
+is a prototype validated against that mock backend, not the production
+system it is designed to eventually front.
+
+--- WHY ---
+The "one-line DI swap" framing, while accurate about the DI registration
+itself, previously stopped there and let the migration read as otherwise
+finished. Added the professor's named list of what's actually still open
+(client implementation, identity propagation, auth, RBAC, integration
+testing, operational hardening) and closed with the explicit prototype-
+vs-production statement, giving the thesis one clear, prominent place
+that states the scope plainly, in the chapter where the topic is
+actually detailed.
+
+================================================================================
+FILE: capitoli/architecture.tex
+CHAPTER/SECTION: Section 3.4.4, "The Antares MCP Server"
+================================================================================
+
+--- OLD ---
+Switching to the real Miorelli tenant requires changing one line in
+\texttt{program.cs}: registering \texttt{AntaresMiorelliClient} instead
+of the stub. No tool code changes. This design is discussed in
+Chapter~\ref{ch:implementation}.
+
+--- NEW ---
+Switching to the real Miorelli tenant changes one line in
+\texttt{program.cs}, registering \texttt{AntaresMiorelliClient} instead
+of the stub, with no tool code changes required; that line is necessary
+for the migration, not sufficient for it, since the client implementation
+itself, identity propagation, authentication, access control, and
+integration testing against the real tenant are still open work.
+Section~\ref{subsec:impl_nswag_migration} discusses this design and its
+remaining gaps in full.
+
+--- WHY ---
+Same caveat as the Implementation.tex fix above, in shorter form since
+this is the architecture-level overview and Implementation.tex is where
+the topic is detailed; the forward reference points there instead of
+repeating everything.
+
+================================================================================
+ALREADY CORRECT — NOT EDITED
+================================================================================
+
+- Implementation.tex, "the concrete implementation behind that interface
+  was a mock, not the production system" — correctly distinguishes the
+  mock from the real Miorelli system, not a violation.
+- Implementation.tex, "The production Miorelli database holds a large
+  volume of personnel data..." — refers to the real, external Miorelli
+  database, not Antares AI.
+- Implementation.tex §4.2.3, "not a production-grade retention policy"
+  (from the point-4 pass) — already correctly contrastive.
+- architecture.tex, "A production client would accept dynamic user
+  input..." — an explicit hypothetical-future contrast with the current
+  test-harness client, not a claim about the current system.
+- background.tex — "production-quality" describes OpenAI's Privacy
+  Filter (an external system); "enterprise deployments" appears only in
+  general literature discussion, never applied to Antares AI itself.
+
+================================================================================
+SUMMARY
+================================================================================
+
+5 edits across 3 files. One of them (inizio.tex) finally closes a
+sentence that had been DEFERRED since the point-2 pass, entangled across
+three separate feedback points, using the agnostic-framing technique
+established after that pass. No code changes, no new Discussion-chapter
+content needed — this point was a terminology and completeness fix to
+existing claims. Build verified clean.

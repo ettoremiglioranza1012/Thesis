@@ -1,11 +1,25 @@
 \chapter{Discussion and Future Work}
 \label{ch:discussion}
 
-\iffalse
+This chapter reflects on what the implementation and validation described in the previous chapters actually established, and where the current system falls short of what running in production would require. Section~\ref{sec:discussion_security_complexity} weighs the security properties the anonymisation pipeline provides against the architectural complexity it adds, including the prototype-scope gaps already flagged in earlier chapters rather than solved problems. Section~\ref{sec:discussion_validation_limitations} separates what typed schemas and deterministic code actually guarantee from what was measured, and names the routing model's temperature setting as an open methodological question rather than an implicit assumption. Section~\ref{sec:discussion_production_migration} discusses what remains before the mock Miorelli backend can be replaced with the production system. Section~\ref{sec:discussion_redis_scalability} considers how the Redis-based context store would need to change under concurrent, multi-tenant load. Section~\ref{sec:discussion_future_extensions} closes the chapter with two possible extensions: multimodal (voice) input and locally hosted models.
+
+% ==========================================
 \section{Security vs.\ Complexity Trade-offs}
 \label{sec:discussion_security_complexity}
-% Write your text here analysing the trade-offs between the security guarantees introduced by the anonymization pipeline and the additional architectural complexity it imposes
 
+The anonymisation pipeline's privacy protections stop short of what a production deployment would require in two related places. The Redis context holding token-to-entity mappings (Section~\ref{subsec:impl_token_reinjection}) has no time-to-live configured. A mapping is removed only when \texttt{Pop} is actually called during a successful server-side deanonymisation; a request that errors out before that point, or a client session that is abandoned mid-flow, leaves its mapping in Redis with no expiry, bounded in practice only by the process's own lifetime. The per-request reports written to \texttt{JobTools}'s local \texttt{logs/} directory (Section~\ref{sec:impl_jobtools}) sit on the other side of the same gap: they contain real names, phone numbers, and distances, are never transmitted anywhere and were never intended to be, but they are also an unencrypted, access-uncontrolled, retention-unmanaged record on local disk.
+
+Neither gap was addressed during the internship, and that was a deliberate scope decision rather than an oversight. The system runs as a local proof of concept: Redis has no persistence volume mounted, so every context is cleared the moment the container stops regardless of whether \texttt{Pop} ever ran, and the log files exist on a machine no one outside the development team has access to. What the internship needed to demonstrate was that reversible pseudonymisation and its MCP-based orchestration work correctly end to end, not that the system already meets the retention and access-control standards a production deployment would be held to. Closing this gap would mean configuring an explicit time-to-live on the Redis context matched to the maximum reasonable lifetime of a single request, defining a retention and deletion policy for the log files, and encrypting them at rest; none of this requires redesigning the architecture described in Chapter~\ref{ch:architecture}, only additional operational hardening on top of it.
+
+% ==========================================
+\section{Validation Methodology Limitations}
+\label{sec:discussion_validation_limitations}
+
+Two claims elsewhere in this thesis rest on single-pass evidence rather than systematic measurement, and it is worth stating that distinction plainly rather than leaving it implied. Typed tool schemas (Section~\ref{subsec:impl_csharp_reflection}) guarantee that a call Claude makes is well-formed, a valid tool name with parameters of the right type. They guarantee nothing about whether that call was the right one. Whether Claude selected the correct sub-tool for a given request, or extracted the correct parameter from an anonymised prompt, is a separate question no schema can answer, and no systematic test suite in this thesis answers it either: the worked examples in Chapter~\ref{ch:usecases} show each use case executing correctly once, not routing accuracy measured across a representative set of Italian prompts.
+
+The same gap compounds with a second one. \texttt{AskAntares} calls Claude at temperature 1.0 (Section~\ref{subsec:impl_ask_antares}), a sampling setting under which the same prompt is not guaranteed to produce the same output on repeated calls. A single successful trace, of the kind Chapter~\ref{ch:usecases} presents, says nothing about whether that same prompt would route identically on a second or third attempt. Establishing routing accuracy as a general property of the system, rather than a property observed once per use case, would require running each test prompt multiple times and reporting both the correctness of each run and the consistency across runs, which this thesis did not do.
+
+\iffalse
 \section{Moving from Mock Providers to Production Databases}
 \label{sec:discussion_production_migration}
 % Write your text here discussing the steps, risks, and considerations involved in replacing the Miorelli stub interface with live production data sources
