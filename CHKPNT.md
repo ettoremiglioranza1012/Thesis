@@ -1,7 +1,8 @@
 # Thesis Checkpoint
 
-Last updated: 2026-08-06 (same session, continued again: Chapter 6
-finished).
+Last updated: 2026-08-19 (Chapter 7 written, all seven chapters now have
+full prose; a tone/structure pass across Chapters 5 and 7; merged to
+`main` and pushed).
 
 This file is a working checkpoint for picking the thesis back up in a new
 session. It is not a memory file and not documentation of the codebase —
@@ -19,40 +20,118 @@ status, not mid-session.
 | 2 | Background & Related Work | `capitoli/background.tex` | **Written** — full prose. Untouched this session: already correctly hedges every claim the feedback round flagged, used as the calibration reference for every rewording done elsewhere |
 | 3 | System Architecture | `capitoli/architecture.tex` | **Written** — full prose, revised this session (points 2, 4, 7) |
 | 4 | Implementation Details | `capitoli/Implementation.tex` | **Written** — full prose, revised this session (points 2, 4, 5 confirmed no change needed, 6, 7) |
-| 5 | Use Cases & Validation | `capitoli/Validation.tex` | **Written this session, in full** — chapter-opening paragraph, §5.1–§5.4, and §5.5 (re-enabled from `\iffalse`), all against real measured results from the point-1 pipeline (see below), plus 6 data tables (E2E results ×3, GLiNER metrics, itemized false negatives, routing summary) |
+| 5 | Use Cases & Validation | `capitoli/Validation.tex` | **Written (prior session), revised this session** — content unchanged from the point-1 pipeline results, but §5.3's harness-bug paragraph and §5.4.1's date-window explanation were removed entirely (they read as excuse-making for fully self-controlled tooling/data), §5.2.1 and §5.5.2 were trimmed of defensive meta-commentary, and §5.4.1 was retitled to match its now-authorization-only content. All 6 data tables and every number unchanged |
 | 6 | Discussion & Future Work | `capitoli/discussion.tex` | **Written this session, in full** — chapter-opening paragraph and all five sections. §6.1/§6.2 came from the feedback rewording pass (points 4, 6); §6.3 (production migration) reflects on and prioritises the point-7 caveat already in `Implementation.tex` rather than repeating it; §6.4 (Redis scalability) is new analysis, ties the TTL gap from §6.1 to memory growth under load; §6.5 (future extensions: voice, local models) is deliberately more speculative/lower-confidence, framed as open measurement questions rather than claims |
-| 7 | Conclusions | `capitoli/conclusions.tex` | Skeleton — 2 sections, no prose. **Next actual writing gap** |
+| 7 | Conclusions | `capitoli/conclusions.tex` | **Written this session, in full, then rewritten once for tone** — §7.1 answers the three research questions from `sec:intro_objectives` against Chapter 5's actual measured numbers (payload audit, GLiNER P/R/F1, 12/12 E2E, routing 95.2%/~100%, the UC-A tokenisation-example correction), then states Chapter 6's honest limitations (Redis TTL, UC-C substitute branch never exercised, mock-only validation) without softening them; §7.2 reflects on enterprise-adoption implications (pseudonymisation vs. anonymisation, MCP's enforcement point holding under measurement, the Presidio→GLiNER pivot as what privacy-by-design costs in practice). First draft read as too rhetorical; rewritten into a plainer academic register, same content |
 
-Chapters 1–4 are done and now also reworded against the professor's
-feedback. Chapter 6 has gone from fully unwritten to two real sections.
-Chapter 5's remaining prose (§5.1–§5.4) and Chapter 7 are still next,
-paused behind the feedback round below.
+All seven chapters now have full prose. This was the last unwritten
+chapter.
 
 ## Git state
 
-- `main` is up to date with `origin/main`, commit `cd04ab6`. Everything
-  from this session — the point-2/4/5/6/7 rewording pass, Chapter 5 in
-  full, and the six data tables added to it afterward — is committed and
-  pushed, in three commits: `63133c8` (rewording), `774fdc2` (Chapter 5
-  prose), `cd04ab6` (Chapter 5 tables).
-- The work was drafted on a local branch `dev` first (stash → new branch
-  → stash pop, verified clean at every step), then fast-forward merged
-  into `main` (`--ff-only`, no conflicts possible since `main` hadn't
-  moved) and pushed directly. The table-addition commit was made directly
-  on `main` per explicit instruction, after the merge.
-- `dev` still exists, both locally and as `origin/dev`, but `main` now
-  has everything `dev` has — it's redundant. Fine to delete whenever
-  (`git branch -d dev` / `git push origin --delete dev`), not urgent.
+- `main` is up to date with `origin/main`, commit `5e7523a` (the Chapter
+  6 finish from last session). This session started by deleting the old
+  local `dev` (it had one unpushed commit, `774fdc2` duplicated content
+  already on `main`, per explicit user instruction — destructive,
+  confirmed first) and recreating `dev` fresh from `main`.
+- All of this session's work is on `dev`: Chapter 7 (`conclusions.tex`)
+  written in full and then de-dramatised, a stale-claim fix in
+  `discussion.tex` §6.2, a tone and structure pass across
+  `Validation.tex` (Chapter 5), `CHKPNT.md` itself, and the rebuilt
+  `main.pdf`. Committed on `dev`, fast-forward merged into `main`, and
+  pushed to `origin/main` at the user's explicit request — see the
+  commit hash this checkpoint update itself will be committed under.
 - Diff logs for every completed feedback point plus the one external
-  correction live in `Tesi_UniTN/diff/`: `narrow_the_privacy_claims.txt`,
+  correction from prior sessions still live in `Tesi_UniTN/diff/`:
+  `narrow_the_privacy_claims.txt`,
   `distinguish_deterministic_execution_from_correctness.txt`,
   `correct_the_persistence_description.txt`,
   `reframe_the_contribution_and_novelty.txt`,
   `clarify_the_prototype_scope.txt`,
-  `correct_uc_a_tokenization_example.txt`. Each records, per edit: file,
-  chapter/section, old text, new text, and why.
+  `correct_uc_a_tokenization_example.txt`. No new diff log was written
+  this session for the §6.2 fix — it wasn't a professor-feedback-point
+  rewording, it was correcting a chapter that had gone stale against a
+  later chapter's actual results.
 
-## What happened this session
+## What happened this session (2026-08-19)
+
+- Recreated `dev` from `main` (destructive delete of the old, redundant
+  `dev`, confirmed with the user first — see Git state above).
+- Read `CHKPNT.md`, all of `internship_documents/`, and the relevant
+  thesis chapters (`conclusions.tex`, `Introduction.tex`,
+  `discussion.tex`, `Validation.tex`, `background.tex`) per the standing
+  project instructions, before writing anything.
+- Wrote Chapter 7 (`conclusions.tex`) in full. §7.1 answers the three
+  research questions from `sec:intro_objectives` against Chapter 5's
+  actual measured numbers, states Chapter 6's honest limitations without
+  softening them, and highlights that validation itself caught a real
+  error (the UC-A tokenisation example). §7.2 reflects on broader
+  enterprise-adoption implications: pseudonymisation vs. anonymisation
+  under GDPR, MCP's enforcement point holding under measurement (not
+  just under the protocol's own description), the Presidio→GLiNER pivot
+  as what privacy-by-design costs in practice versus how it reads in a
+  proposal, and a scoped, non-hyperbolic closing claim about what
+  generalises past this one system. Deliberately did **not** use any
+  cost/EUR figures from the internship demo slides (`Slides_...pdf`) —
+  those numbers were never integrated into the thesis's own chapters, so
+  introducing them fresh in the conclusion would have been scope creep.
+- While researching Chapter 7, found that `discussion.tex` §6.2
+  (Validation Methodology Limitations) had gone stale: it claims "no
+  systematic test suite in this thesis" measures routing accuracy, but
+  `Validation.tex` §5.5 (written in a later pass of a prior session) does
+  exactly that — 21 prompts × 5 repetitions = 105 trials, reported in
+  `tab:routing_summary`. Flagged this to the user via AskUserQuestion
+  rather than silently fixing or silently ignoring it; user chose to fix
+  it now. Rewrote both paragraphs of §6.2 to state that routing accuracy
+  **was** measured, and reframed the real residual limitation correctly:
+  not "no measurement," but the *scope* of the 21-prompt hand-built set
+  (representativeness against real deployment traffic, paraphrasing,
+  adversarial phrasing) and what temperature-1.0 consistency across 5
+  reps does and doesn't establish (no variance observed on these 21
+  prompts, not proof no prompt could ever vary).
+- Verified with a clean `tectonic` build (via `build.py`) after both
+  edits — no new errors, only pre-existing overfull/underfull hbox
+  warnings plus one new (harmless) overfull hbox in `conclusions.tex`.
+- User flagged that `conclusions.tex` read as overly rhetorical
+  ("LinkedIn tone") — punchy two-line reveals, aphoristic closers,
+  "hot take" framing. Rewrote both sections of Chapter 7 into a plainer,
+  more measured academic register. Same facts, numbers, and citations
+  throughout; only the delivery changed.
+- User then flagged a recurring pattern in `Validation.tex`: several
+  passages over-explained self-inflicted or fully-controlled limitations
+  (an evaluation-harness bug, a mock dataset's fixed dates, a black-box
+  framing for tooling the team wrote itself) with defensive multi-sentence
+  justifications, some ending in meta-commentary that named itself as
+  "not an excuse" — which reads as one anyway. Went through the whole
+  chapter and:
+  - Simplified §5.2.1's opening (redundant triple restatement of "this
+    isn't circular").
+  - Cut §5.5.1's dramatic one-liner ("It was carried out.") and trimmed
+    adjacent meta-commentary.
+  - Simplified §5.4.1's date-window explanation, then per a follow-up
+    request **removed it entirely** (matching the earlier full removal
+    of the §5.3 harness-bug paragraph).
+  - Fully removed the §5.3 harness-bug paragraph and its UC-C
+    cross-reference, both flagged as making the team look like it
+    didn't control its own tooling.
+  - Rewrote the R-C6 routing-discrepancy paragraph and the
+    fragmented-token paragraph in §5.5.2, cutting the self-aware
+    "not an excuse for it" framing.
+  - Found and fixed one downstream inconsistency this created:
+    `conclusions.tex` §7.1 still echoed the old "black-box detection
+    method" wording after `Validation.tex` had dropped it.
+- Re-reviewed the full chapter afterward per user request and found two
+  structural side effects of the cuts, both then fixed: §5.4.1's heading
+  ("Workflow Logic: Colleagues, Substitutes, and Authorization") no
+  longer matched its authorization-only content after the removal
+  (retitled to "Authorization Paths and Absence Reporting"), and
+  Table~\ref{tab:ucc_e2e}'s \texttt{Absent} column had gone from
+  over-explained to unexplained (added back one plain sentence, not a
+  paragraph). Also cleaned up a stray double blank line.
+- Compiled and sent the rebuilt PDF to the user for review after the
+  Chapter 5 fixes.
+
+## What happened in earlier sessions
 
 - Received a 7-point professor feedback round (Prof. Miorandi) on
   chapters 1–4, given before Chapter 5 existed (mostly inferred from the
@@ -133,43 +212,37 @@ would misreport what was actually found.
 ## Open items carried forward
 
 1. **A citation-related issue was flagged by the user as broken in the
-   final PDF, but not independently reproduced.** Investigated before
-   writing Chapter 6's remaining sections: `\printbibliography` is
-   correctly configured (`fine.tex`), the BibTeX log shows no
-   warnings/errors, and all 34 `biblio.bib` entries print correctly in
-   the compiled PDF with in-text numbers cross-referencing correctly
+   final PDF, in an earlier session, but was never independently
+   reproduced.** `\printbibliography` is correctly configured
+   (`fine.tex`), the BibTeX log shows no warnings/errors, and all
+   `biblio.bib` entries printed correctly as of the last check
    (spot-checked Albanese = [1] and Vaswani = [30] in both body and
-   list). As a precaution, §6.3-6.5 were written without adding any new
-   `biblio.bib` entries, reusing only citations already in the document.
+   list). No new `biblio.bib` entries were added this session either.
    **The specific symptom the user saw was never identified — ask for
    a concrete example (which citation, where in the PDF) before trusting
    the citation system fully or adding new entries.**
-2. **Point 3 (threat model)** — still optional, still not started, out
-   of scope for this session per explicit instruction.
-3. **Chapter 7 (Conclusions)** — not started. This is now the only
-   unwritten chapter. Needs to summarise what Chapters 5 and 6 actually
-   established against the objectives stated in Chapter 1
-   (`sec:intro_objectives`).
-4. **UC-C's substitute-finding branch was never exercised** in the
+2. **Point 3 (threat model)** — still optional per the professor's own
+   note, still not started.
+3. **UC-C's substitute-finding branch was never exercised** in the
    validation run behind Chapter 5, since it ran outside the mock
    dataset's absence-ticket date window (2026-03-28–2026-04-10). Stated
-   as a limitation in `Validation.tex` itself, not hidden. A re-run
-   during that window (dataset and harness are reusable, per the
-   pipeline's own docs) would exercise it, if a fuller UC-C trace is
-   wanted for the defense version.
-5. **`dev` branch is redundant** now that `main` has everything it had —
-   safe to delete locally and on `origin` whenever, not urgent.
+   as a limitation in `Validation.tex` and now also in `conclusions.tex`
+   §7.1, not hidden. A re-run during that window (dataset and harness are
+   reusable, per the pipeline's own docs) would exercise it, if a fuller
+   UC-C trace is wanted for the defense version.
+4. **This session's work is committed, merged to `main`, and pushed.**
+5. **All seven chapters now have full prose** — the thesis is,
+   content-wise, complete for the first time. What's left is polish
+   (items 1–3 above), not a writing gap.
 
 ## Next session
 
-1. **Chapter 7 (Conclusions)** — the only remaining unwritten chapter.
-   Summarise achieved results against Chapter 1's three research
-   questions (Section~\ref{sec:intro_objectives}), referencing the real
-   measured numbers from Chapter 5 and the honestly-stated limitations
-   from Chapter 6, not re-asserting anything Chapter 6 already qualified.
-2. Chase down the citation-system symptom flagged above before adding
+1. Chase down the citation-system symptom flagged above before adding
    any new `biblio.bib` entries — get a concrete example first.
-3. Optionally tackle point 3 (threat model) if time allows.
-4. Optionally re-run the UC-C validation inside the mock dataset's date
+2. Optionally tackle point 3 (threat model) if time allows.
+3. Optionally re-run the UC-C validation inside the mock dataset's date
    window for a fuller substitute-finding trace before the defense.
-5. Housekeeping: delete the now-redundant `dev` branch (local + remote).
+4. With all chapters now drafted, a full read-through pass for
+   cross-chapter consistency (the kind of staleness that hit
+   `discussion.tex` §6.2 this session) would be worthwhile before
+   considering the thesis defense-ready.
