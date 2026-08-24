@@ -28,3 +28,6 @@
 __pycache__/
 *.pyc
 .venv/
+
+# Build output — build locally with `uv run python build.py`, don't commit
+Tesi_UniTN/main.pdf

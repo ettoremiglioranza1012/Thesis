@@ -7,7 +7,7 @@ This chapter presents the architecture of Antares AI, a privacy-oriented LLM orc
 \section{Architectural Principles: Privacy-by-Design}
 \label{sec:arch_privacy_by_design}
 
-Privacy by design, formalised by Cavoukian~\cite{cavoukian2009privacy} and later codified as a legal obligation in GDPR Article~25~\cite{gdpr2016}, is the principle that privacy protection must be built into systems from the outset. Cavoukian's framework identifies seven foundational principles: proactive prevention of privacy harms, privacy as the default operational setting, privacy functionality embedded into the architecture, full functionality without zero-sum trade-offs, end-to-end security across the data lifecycle, visibility and transparency in system operation, and user-centric design. The Antares AI architecture applies these principles as structural design constraints, not as runtime policy.
+Privacy by design, formalised by Cavoukian~\cite{cavoukian2009privacy} and later codified as a legal obligation in GDPR Article~25~\cite{gdpr2016}, is the principle that privacy protection must be built into systems from the outset. Cavoukian's framework identifies seven foundational principles: proactive prevention of privacy harms, privacy as the default operational setting, privacy functionality embedded into the architecture, full functionality without zero-sum trade-offs, end-to-end security across the data lifecycle, visibility and transparency in system operation, and user-centric design. The Antares AI architecture applies these principles as structural design constraints, not as runtime policy. Cavoukian's own framework has drawn criticism for exactly this gap between principle and practice: an analysis of privacy incidents at Google and Facebook found that both companies had publicly committed to privacy-by-design principles yet still suffered breaches traceable to specific, identifiable engineering choices, arguing that the principles are too abstract on their own to constrain implementation decisions unless translated into concrete, checkable requirements~\cite{rubinstein2013counterfactual}. The three principles elaborated below are this thesis's attempt at that translation: each is tied to a specific architectural mechanism, not restated as an abstract commitment.
 
 Three of Cavoukian's principles shape the system most directly.
 
@@ -33,7 +33,7 @@ Workforce operations are structured around three core entity types: \emph{person
 \section{Functional and Non-Functional Requirements}
 \label{sec:arch_requirements}
 
-The principles and domain constraints introduced above translate into a concrete set of requirements the architecture must satisfy. This section makes them explicit and traceable, without repeating the discussion already given in Sections~\ref{sec:arch_privacy_by_design} and~\ref{sec:arch_antares_ecosystem}.
+The principles and domain constraints introduced above translate into a concrete set of requirements the architecture must satisfy. This section makes them explicit and traceable, without repeating the discussion already given in Sections~\ref{sec:arch_privacy_by_design} and~\ref{sec:arch_antares_ecosystem}. The functional/non-functional split used below follows standard requirements-engineering practice~\cite{sommerville2015engineering}: functional requirements state what the system does, non-functional requirements constrain how well or under what conditions it has to do it, and the two are kept separate here because they come from different sources, functional requirements from the three use cases directly, non-functional requirements from the domain constraints of Section~\ref{sec:arch_antares_ecosystem}.
 
 \textbf{Functional requirements} follow directly from the three use cases the system supports, each one a concrete operation a dispatcher or site manager already performs by hand. Given a named client site, the architecture has to find the nearest available workers within a configurable radius and rank them by distance (Use Case~A, traced in detail in Section~\ref{sec:arch_data_flow}). Given a worker's name, it has to identify that worker's direct colleagues and surface a ranked pool of nearby substitutes (Use Case~B, Section~\ref{subsec:impl_ucb}). Given a holiday request, it has to resolve the full chain end to end: verify the requester's authorisation, determine which colleagues are absent on the relevant dates, and identify who is available to cover (Use Case~C, Section~\ref{subsec:impl_ucc}).
 
@@ -83,9 +83,9 @@ The architectural design objective (keeping PII out of the MCP boundary) is purs
 \subsection{The MCP Client Orchestrator}
 \label{subsec:arch_mcp_client_orchestrator}
 
-The MCP client (\texttt{Antares\_AI\_McpClient}) is a .NET~10~\cite{dotnet10} console application that orchestrates the end-to-end request lifecycle. In the current system it serves as both the reference client implementation and the integration test harness for the three use case scenarios.
+The MCP client (\texttt{Antares\_AI\_McpClient}) is a .NET~10~\cite{dotnet10} console application that orchestrates the end-to-end request lifecycle. In the current system it is both the reference client implementation and the integration test harness for the three use case scenarios.
 
-Its responsibilities are deliberately minimal. It constructs a natural language prompt, submits it to the Anonymization API, and then calls \texttt{ask\_antares} on the MCP server with the anonymised prompt and \texttt{contextId}. The client performs no business logic and holds no sensitive data; it can't observe PII because it never calls a deanonymisation endpoint or touches the Redis context.
+Its responsibilities are deliberately minimal. It constructs a natural language prompt, submits it to the Anonymization API, and then calls \texttt{ask\_antares} on the MCP server with the anonymised prompt and \texttt{contextId}. The client performs no business logic, and once the anonymisation call returns it never observes PII again: it never calls \texttt{/deanonymize-known} and never touches the Redis context. Before that call, though, it does hold real data. The natural language prompt it constructs is hardcoded for these scenarios and contains a real name or site address, and that text sits in the client's own memory for the brief interval before the Anonymization API replaces it with tokens. A production client accepting live user input instead of a fixed string would face the same window. Placing the anonymisation boundary at the client's outgoing edge, immediately before the first network call, keeps that window as short as the architecture can make it; it does not remove it.
 
 Communication with the MCP server uses the HTTP/SSE transport via \texttt{ModelContextProtocol.Core}. Communication with the Anonymization API uses a strongly typed HTTP client generated by NSwag~\cite{nswag2015} from the API's OpenAPI specification, keeping the client's view of the API interface in sync with the server implementation automatically.
 
@@ -94,7 +94,7 @@ A production client would accept dynamic user input, manage multi-turn context a
 \subsection{The Anonymization Service API}
 \label{subsec:arch_anonymization_service}
 
-The Anonymization Service (\texttt{AnonymizationServiceAPI}) is an ASP.NET Core Minimal API application that acts as the PII gateway between client and server. It exposes three REST endpoints: \texttt{GET /anonymize}, \texttt{POST /anonymize-into-context}, and \texttt{POST /deanonymize-known}.
+The Anonymization Service (\texttt{AnonymizationServiceAPI}), an ASP.NET Core Minimal API application, is the PII gateway between client and server. It exposes three REST endpoints: \texttt{GET /anonymize}, \texttt{POST /anonymize-into-context}, and \texttt{POST /deanonymize-known}.
 
 The primary client-facing operation is \texttt{/anonymize}. It receives a raw prompt, delegates entity detection to the GLiNER service, replaces detected entities with stable typed tokens, generates a \texttt{contextId}, stores the token-to-entity mapping in Redis, and returns the anonymised text, the \texttt{contextId}, and a detection count. The token format is \texttt{<LABEL\_NNNN>}, where \texttt{LABEL} is the uppercase entity type and \texttt{NNNN} is a zero-padded counter per label per context. This preserves entity type and cardinality while stripping identifying content.
 
@@ -113,7 +113,7 @@ The multilingual model \texttt{urchade/gliner\_multi-v2.1}~\cite{zaratiana2023gl
 
 The service is a dumb NER oracle. It receives text and labels, runs the model, returns spans. All policy decisions (which labels to request, what confidence threshold to apply, how to handle overlapping spans) are made by the Anonymization API, which configures the \texttt{/analyze} call accordingly. This keeps the GLiNER service simple and reusable.
 
-Three post-processing stages run within the Anonymization API before token substitution. Raw predictions are normalised: invalid offsets, missing labels, and out-of-bounds spans are discarded. Low-quality entities are filtered out: spans below the 0.45 confidence threshold, spans shorter than three characters, and spans matching an Italian stopword blocklist are removed. Overlapping predictions are deduplicated, keeping the higher-confidence, longer span. The result is a clean, non-overlapping list of entity spans ready for replacement.
+Three post-processing stages run within the Anonymization API before token substitution. Raw predictions are normalised: invalid offsets, missing labels, and out-of-bounds spans are discarded. Low-quality entities are filtered out: spans below the 0.45 confidence threshold, spans shorter than three characters, and spans matching an Italian stopword blocklist are removed. Overlapping predictions are deduplicated, keeping the higher-confidence, longer span, the same greedy selection rule as non-maximum suppression in object detection, where multiple candidate detections cover the same region and only the highest-scoring one should survive~\cite{neubeck2006nms}. The result is a clean, non-overlapping list of entity spans ready for replacement.
 
 \subsection{The Antares MCP Server}
 \label{subsec:arch_antares_mcp_server}
@@ -130,7 +130,7 @@ The data access layer is abstracted behind \texttt{IMiorelliService}. The curren
 \section{Data Flow and Lifecycle of a Request}
 \label{sec:arch_data_flow}
 
-This section traces a user request from natural language prompt to confirmation response. Use Case~A (finding the nearest available workers to a named client site) serves as the concrete example.
+This section traces a user request from natural language prompt to confirmation response. Use Case~A (finding the nearest available workers to a named client site) is the concrete example.
 
 \subsection{Tokenisation and Redis Context Storage}
 \label{subsec:arch_tokenization_redis}
@@ -141,7 +141,7 @@ The client calls \texttt{GET /anonymize}. The API calls the GLiNER service, rece
 
 The mapping \texttt{\{"<LOCATION\_0001>": "Bergamo", "<LOCATION\_0002>": "Via della Fonda", "<LOCATION\_0003>": "Giulia S.r.l."\}} is stored in Redis under \texttt{anon:context:\{contextId\}}, where \texttt{contextId} is a freshly generated UUID. The API returns the anonymised prompt, \texttt{"Trova i lavoratori più vicini al cantiere <LOCATION\_0001> <LOCATION\_0002> 5 <LOCATION\_0003> entro 15 km..."}, and the \texttt{contextId} to the client. No PII is in the response; the client holds only an opaque session identifier. The fragmentation does not itself create a leak, since every span GLiNER did detect is tokenised regardless of how it is split or labelled — but it illustrates why detection recall, not label precision, is the property the privacy claim actually rests on.
 
-Redis is the right tool here for practical reasons: its in-memory architecture gives sub-millisecond read and write latency, which matters in a synchronous request pipeline. Its native hash type matches the token-map structure directly, and its in-memory-with-optional-persistence model suits ephemeral session data that does not need to survive a service restart.
+Redis is the right tool here for practical reasons: its in-memory architecture gives sub-millisecond read and write latency, which matters in a synchronous request pipeline~\cite{redis2025latency}. Its native hash type matches the token-map structure directly, and its in-memory-with-optional-persistence model suits ephemeral session data that does not need to survive a service restart. Redis also guarantees that a single command executes atomically: because the server processes commands one at a time on a single thread rather than interleaving concurrent operations, a read or a write to the token map cannot be observed half-applied by a competing request, which is the property the one-time-use deanonymisation described in Section~\ref{subsec:impl_token_reinjection} relies on~\cite{redis2025docs}.
 
 \subsection{Isolated Semantic Routing}
 \label{subsec:arch_semantic_routing}
@@ -157,7 +157,7 @@ The Claude API returns a structured tool call rather than free text. The \texttt
 \subsection{Server-Side Deanonymisation and Tool Execution}
 \label{subsec:arch_deanonymization}
 
-The \texttt{GetNearestWorkersToCantiere} method is the first point where PII re-enters the system. Its first action is to call \texttt{DeanonymizeAsync}, which posts to \texttt{/deanonymize-known} with the token \texttt{"<LOCATION\_0001>"} and the \texttt{contextId}. The API atomically reads and deletes the context from Redis and returns the original value: \texttt{"Bergamo Via della Fonda 5"}. The Redis context no longer exists after this call.
+The \texttt{GetNearestWorkersToCantiere} method is the first point where PII re-enters the system. Its first action is to call \texttt{DeanonymizeAsync}, which posts to \texttt{/deanonymize-known} with the token \texttt{"<LOCATION\_0001>"} and the \texttt{contextId}. The API atomically reads and deletes the context from Redis and returns the original value stored under that specific token: \texttt{"Bergamo"}, matching the mapping given above. The Redis context no longer exists after this call.
 
 The deanonymised value drives the business logic entirely within the server's trusted boundary. The method resolves the caller's authorised cantieri via the Miorelli service layer, locates the matching site, retrieves assigned workers via the \texttt{PULITO\_DA} relation, computes Haversine distances from each worker's registered coordinates to the site's GPS coordinates, and filters and ranks results by distance within the specified radius.
 

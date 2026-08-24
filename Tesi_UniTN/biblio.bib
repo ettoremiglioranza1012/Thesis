@@ -105,6 +105,14 @@
   note={Open protocol for connecting LLM clients to external tools and data sources. Accessed: June 2026}
 }
 
+@misc{mcp2025specnov,
+  title={{Model Context Protocol} Specification (Revision 2025-11-25)},
+  author={{Model Context Protocol}},
+  year={2025},
+  howpublished={\url{https://modelcontextprotocol.io/specification/2025-11-25}},
+  note={Current stable revision as of writing, superseding the November 2024 specification~\cite{anthropic2024mcp}. Introduces Streamable HTTP as the network transport, replacing the HTTP+SSE transport of the original specification (deprecated for new implementations as of the 2025-03-26 revision, retained only for backward compatibility), and an OAuth~2.1-based authorization framework absent from the original specification. Accessed: August 2026}
+}
+
 @misc{anthropic2024tooluse,
   title={Tool Use with {Claude}},
   author={{Anthropic}},
@@ -447,4 +455,288 @@
   year={2026},
   howpublished={\url{https://cdn.openai.com/pdf/c66281ed-b638-456a-8ce1-97e9f5264a90/OpenAI-Privacy-Filter-Model-Card.pdf}},
   note={Released April 22, 2026 under the Apache~2.0 licence. Sparse Mixture-of-Experts token-classification model for PII detection. Benchmark F1 figures (Table~1, Section~7.4.1, p.~14): 96.0\% token-level F1 on PII-Masking-300k (baseline), 97.4\% on the OpenAI-corrected version. Accessed: July 2026}
+}
+
+% ==========================================
+% NAMED ENTITY RECOGNITION — ADDITIONAL DEPTH
+% ==========================================
+
+@inproceedings{nadeau2007survey,
+  title={A Survey of Named Entity Recognition and Classification},
+  author={Nadeau, David and Sekine, Satoshi},
+  booktitle={Lingvisticae Investigationes},
+  volume={30},
+  number={1},
+  pages={3--26},
+  doi={10.1075/li.30.1.03nad},
+  year={2007}
+}
+
+@inproceedings{aly2021zeroshot,
+  title={Leveraging Type Descriptions for Zero-Shot Named Entity Recognition and Classification},
+  author={Aly, Rami and Vlachos, Andreas and McDonald, Ryan},
+  booktitle={Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Conference on Natural Language Processing (ACL-IJCNLP 2021)},
+  pages={1516--1528},
+  year={2021}
+}
+
+@inproceedings{dai2020discontinuous,
+  title={An Effective Transition-based Model for Discontinuous {NER}},
+  author={Dai, Xiang and Karimi, Sarvnaz and Hachey, Ben and Paris, C{\'e}cile},
+  booktitle={Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics (ACL 2020)},
+  pages={5860--5870},
+  note={arXiv preprint arXiv:2004.13454},
+  year={2020}
+}
+
+@article{stubbs2015deidentification,
+  title={Automated systems for the de-identification of longitudinal clinical narratives: Overview of 2014 {i2b2/UTHealth} shared task Track 1},
+  author={Stubbs, Amber and Kotfila, Christopher and Uzuner, {\"O}zlem},
+  journal={Journal of Biomedical Informatics},
+  volume={58},
+  pages={S11--S19},
+  doi={10.1016/j.jbi.2015.06.007},
+  year={2015}
+}
+
+@inproceedings{sundheim1995muc6,
+  title={Overview of Results of the {MUC-6} Evaluation},
+  author={Sundheim, Beth M.},
+  booktitle={Proceedings of the Sixth Message Understanding Conference (MUC-6)},
+  note={Association for Computational Linguistics. Available: aclanthology.org/M95-1002},
+  year={1995}
+}
+
+@inproceedings{minkov2006tradeoff,
+  title={{NER} Systems that Suit User's Preferences: Adjusting the Recall-Precision Trade-off for Entity Extraction},
+  author={Minkov, Einat and Wang, Richard C. and Tomasic, Anthony and Cohen, William W.},
+  booktitle={Proceedings of the Human Language Technology Conference of the {NAACL}, Companion Volume: Short Papers},
+  pages={93--96},
+  year={2006}
+}
+
+% ==========================================
+% COMPUTER VISION TECHNIQUE REUSED IN NER
+% ==========================================
+
+@inproceedings{neubeck2006nms,
+  title={Efficient Non-Maximum Suppression},
+  author={Neubeck, Alexander and Van Gool, Luc},
+  booktitle={18th International Conference on Pattern Recognition (ICPR'06)},
+  pages={850--855},
+  doi={10.1109/ICPR.2006.479},
+  year={2006}
+}
+
+% ==========================================
+% LLM INSTRUCTION-FOLLOWING / TOOL USE — ADDITIONAL DEPTH
+% ==========================================
+
+@article{ouyang2022instructgpt,
+  title={Training language models to follow instructions with human feedback},
+  author={Ouyang, Long and Wu, Jeffrey and Jiang, Xu and Almeida, Diogo and Wainwright, Carroll and Mishkin, Pamela and Zhang, Chong and Agarwal, Sandhini and Slama, Katarina and Ray, Alex and others},
+  journal={Advances in Neural Information Processing Systems},
+  volume={35},
+  pages={27730--27744},
+  note={arXiv preprint arXiv:2203.02155},
+  year={2022}
+}
+
+@article{qu2024toollearning,
+  title={Tool Learning with Large Language Models: A Survey},
+  author={Qu, Changle and Dai, Sunhao and Wei, Xiaochi and Cai, Hengyi and Wang, Shuaiqiang and Yin, Dawei and Xu, Jun and Wen, Ji-Rong},
+  journal={Frontiers of Computer Science},
+  volume={19},
+  number={8},
+  pages={198343},
+  note={arXiv preprint arXiv:2405.17935},
+  year={2024}
+}
+
+@inproceedings{patil2025bfcl,
+  title={The {Berkeley} Function Calling Leaderboard ({BFCL}): From Tool Use to Agentic Evaluation of Large Language Models},
+  author={Patil, Shishir G. and others},
+  booktitle={Proceedings of the 42nd International Conference on Machine Learning (ICML 2025)},
+  note={PMLR volume 267},
+  year={2025}
+}
+
+@inproceedings{holtzman2020degeneration,
+  title={The Curious Case of Neural Text Degeneration},
+  author={Holtzman, Ari and Buys, Jan and Du, Li and Forbes, Maxwell and Choi, Yejin},
+  booktitle={International Conference on Learning Representations (ICLR 2020)},
+  year={2020}
+}
+
+% ==========================================
+% CLASSICAL SECURITY ARCHITECTURE THEORY
+% ==========================================
+
+@article{hardy1988confuseddeputy,
+  title={The Confused Deputy: (or why capabilities might have been invented)},
+  author={Hardy, Norman},
+  journal={ACM SIGOPS Operating Systems Review},
+  volume={22},
+  number={4},
+  pages={36--38},
+  doi={10.1145/54289.871709},
+  year={1988}
+}
+
+@article{saltzer1975protection,
+  title={The Protection of Information in Computer Systems},
+  author={Saltzer, Jerome H. and Schroeder, Michael D.},
+  journal={Proceedings of the IEEE},
+  volume={63},
+  number={9},
+  pages={1278--1308},
+  doi={10.1109/PROC.1975.9939},
+  year={1975}
+}
+
+@misc{ietf2025oauth21,
+  title={The {OAuth 2.1} Authorization Framework},
+  author={Hardt, Dick and Parecki, Aaron and Lodderstedt, Torsten},
+  year={2025},
+  howpublished={\url{https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/}},
+  note={IETF Internet-Draft, active revision. Supersedes {RFC 6749} ({OAuth 2.0}). Accessed: August 2026}
+}
+
+@misc{microsoft2024lsp,
+  title={Language Server Protocol Specification},
+  author={{Microsoft}},
+  year={2024},
+  howpublished={\url{https://microsoft.github.io/language-server-protocol/}},
+  note={Current specification (version 3.18). Accessed: August 2026}
+}
+
+@misc{jsonschema2020,
+  title={{JSON Schema}: A Media Type for Describing {JSON} Documents},
+  author={Wright, Austin and Andrews, Henry and Hutton, Ben and Dennis, Greg},
+  year={2022},
+  howpublished={\url{https://json-schema.org/specification}},
+  note={Draft 2020-12. Accessed: August 2026}
+}
+
+% ==========================================
+% STATISTICAL METHODOLOGY / SOFTWARE TESTING — ADDITIONAL DEPTH
+% ==========================================
+
+@article{brown2001interval,
+  title={Interval Estimation for a Binomial Proportion},
+  author={Brown, Lawrence D. and Cai, T. Tony and DasGupta, Anirban},
+  journal={Statistical Science},
+  volume={16},
+  number={2},
+  pages={101--133},
+  doi={10.1214/ss/1009213286},
+  year={2001}
+}
+
+@article{mckeeman1998differential,
+  title={Differential Testing for Software},
+  author={McKeeman, William M.},
+  journal={Digital Technical Journal},
+  volume={10},
+  number={1},
+  pages={100--107},
+  year={1998}
+}
+
+@book{sommerville2015engineering,
+  title={Software Engineering},
+  author={Sommerville, Ian},
+  edition={10th},
+  year={2015},
+  publisher={Pearson}
+}
+
+% ==========================================
+% PRIVACY ENGINEERING / GDPR — ADDITIONAL DEPTH
+% ==========================================
+
+@article{ohm2010broken,
+  title={Broken Promises of Privacy: Responding to the Surprising Failure of Anonymization},
+  author={Ohm, Paul},
+  journal={UCLA Law Review},
+  volume={57},
+  pages={1701--1777},
+  year={2010}
+}
+
+@article{rubinstein2013counterfactual,
+  title={Privacy by Design: A Counterfactual Analysis of {Google} and {Facebook} Privacy Incidents},
+  author={Rubinstein, Ira S. and Good, Nathaniel},
+  journal={Berkeley Technology Law Journal},
+  volume={28},
+  pages={1333--1414},
+  year={2013}
+}
+
+@misc{enisa2019pseudonymisation,
+  title={Pseudonymisation Techniques and Best Practices},
+  author={{European Union Agency for Cybersecurity (ENISA)}},
+  year={2019},
+  howpublished={\url{https://www.enisa.europa.eu/publications/pseudonymisation-techniques-and-best-practices}},
+  note={Accessed: August 2026}
+}
+
+@techreport{nist2006logmanagement,
+  title={Guide to Computer Security Log Management},
+  author={Kent, Karen and Souppaya, Murugiah},
+  institution={National Institute of Standards and Technology},
+  number={Special Publication 800-92},
+  year={2006}
+}
+
+% ==========================================
+% IDENTIFIERS / REDIS INFRASTRUCTURE — ADDITIONAL DEPTH
+% ==========================================
+
+@misc{ietf2005uuid,
+  title={A Universally Unique {IDentifier} ({UUID}) {URN} Namespace},
+  author={Leach, Paul and Mealling, Michael and Salz, Rich},
+  year={2005},
+  howpublished={\url{https://datatracker.ietf.org/doc/html/rfc4122}},
+  note={{IETF} {RFC} 4122. Accessed: August 2026}
+}
+
+@misc{redis2025docs,
+  title={Redis Documentation: Data Types and Transactions},
+  author={{Redis Ltd.}},
+  year={2025},
+  howpublished={\url{https://redis.io/docs/latest/develop/using-commands/transactions/}},
+  note={Covers per-command atomicity under Redis's single-threaded execution model. Accessed: August 2026}
+}
+
+@misc{deloitte2024ethics,
+  title={State of Ethics and Trust in Technology},
+  author={{Deloitte}},
+  year={2024},
+  howpublished={\url{https://www.deloitte.com/us/en/about/governance/technology-trust-ethics-annual-report.html}},
+  note={Third annual survey, approximately 1,848 business and technical professionals, published September 2024. Reports data privacy as the leading ethical concern around generative AI deployment, cited by 40\% of respondents as their single biggest concern, up from 25\% in 2023. Accessed: August 2026}
+}
+
+@misc{redis2025cluster,
+  title={Redis Cluster Specification},
+  author={{Redis Ltd.}},
+  year={2025},
+  howpublished={\url{https://redis.io/docs/latest/operate/oss_and_stack/reference/cluster-spec/}},
+  note={Partitioned cluster deployment: the key space is split into 16384 hash slots, each master node handling a subset. Accessed: August 2026}
+}
+
+@misc{redis2025sentinel,
+  title={Redis Sentinel Documentation},
+  author={{Redis Ltd.}},
+  year={2025},
+  howpublished={\url{https://redis.io/docs/latest/operate/oss_and_stack/management/sentinel/}},
+  note={Replication with automatic failover: a monitored replica is promoted to master and the remaining replicas reconfigured. Accessed: August 2026}
+}
+
+@misc{redis2025latency,
+  title={Redis Latency Monitoring and Diagnostics},
+  author={{Redis Ltd.}},
+  year={2025},
+  howpublished={\url{https://redis.io/docs/latest/operate/oss_and_stack/management/optimization/latency/}},
+  note={States Redis command processing is typically in the sub-microsecond to low-millisecond range on commodity hardware. Accessed: August 2026}
 }

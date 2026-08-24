@@ -40,6 +40,22 @@ When writing or editing thesis prose, **never** use the following patterns. They
 
 **Perfect-but-sterile formality.** Academic writing can use contractions occasionally. "It's", "doesn't", "won't" are not informal — they are normal English. A thesis that never uses them reads like a legal document.
 
+**"Is/are" avoidance.** Do not replace a plain "is" or "are" with an elaborate stand-in verb to sound more formal: "serves as", "stands as", "marks", "represents", "functions as", "boasts". If the sentence means "X is Y", write "X is Y".
+
+**Manufactured analytical tags.** Do not close a sentence with a dangling "-ing" clause that pretends to add analysis without adding content: "...highlighting the importance of X", "...underscoring the need for Y", "...reflecting broader trends in Z". If the implication is worth stating, give it its own sentence with a real claim in it, or cut it.
+
+**Vague connective filler.** Avoid "in connection with", "in association with", "associated with", "connected to" as a substitute for stating the actual relationship. Name the relationship directly: "X causes Y", "X is a special case of Y", "X depends on Y".
+
+**Extended buzzword list.** In addition to the words already banned above, also avoid: *garner, enduring, enhance, interplay, intricate/intricacies, key (as a filler adjective), landscape (used abstractly), meticulous/meticulously, pivotal, showcase/showcasing, valuable, vibrant, boast/boasts, align with, bolstered, emphasizing, highlight (as a verb), groundbreaking, renowned, diverse array*.
+
+**The "despite X, faces challenges" formula.** Do not structure a limitations discussion as: state something positive, pivot with "despite" or "however", name a vague challenge, resolve it with equally vague reassurance ("nonetheless demonstrates promise", "remains an area for future work"). If a limitation is real, name it precisely and say what it would take to fix it. Don't manufacture balance for its own sake.
+
+**Repeated paragraph shape.** Watch for the same internal structure recurring across consecutive paragraphs: claim, then evidence, then a stated implication, then a transition sentence. Two or three paragraphs built on this exact template in a row read as generated even when each is individually fine. Vary how a paragraph opens and closes.
+
+**Distanced impersonal hedging.** Avoid routing a claim through a distancing frame instead of just stating it: "one might argue that", "it could be suggested that", "a reader may notice that". State the claim directly and own it, or attribute it to a specific source.
+
+*(This list was last extended 2026-08-24 against Wikipedia's actively maintained "Signs of AI writing" guidance and 2025 corpus research on AI-influenced vocabulary in academic writing. Re-check current commentary on Claude Sonnet's specific tells periodically — model behaviour drifts across versions.)*
+
 ## What to do instead
 
 Write like a precise engineer explaining something real to a smart colleague. Take positions. Use short sentences when you want something to land. Quote numbers and names rather than describing things vaguely. If a design choice was made for a specific reason, state that reason directly without softening it.
