@@ -1,6 +1,36 @@
 # Thesis Checkpoint
 
-Last updated: 2026-08-24, same session continued (after the 12-point
+Last updated: 2026-08-24, new session on branch `review-response-lit-depth`
+(one commit, `af15762`, ahead of `main`). Asked to independently review,
+as a critical outside reader, whether the committed 12-point response
+actually held up — not just re-read the checkpoint's own self-report.
+Found and fixed a real internal contradiction the committed session had
+missed: `architecture.tex` §3.4 stated `/deanonymize-known` is one-time-use
+and that a repeated call with the same `contextId` "will find no context
+and fail cleanly," while the same commit's own new Ch.5 UC-A multi-call
+analysis reports 2 of 5 canonical-prompt repetitions issuing three
+separate deanonymize calls against one `contextId`, all succeeding. Fixed
+by softening the Ch.3/Implementation.tex claims to state one-time-use as
+design intent rather than an operational guarantee, and adding explicit
+cross-references between `architecture.tex` §3.4/§3.6.1, `Implementation.tex`,
+and `Validation.tex`'s UC-A passage so the tension is visible to a reader
+in either direction, without asserting a mechanism this thesis doesn't
+measure (consistent with [[feedback_thesis_codebase_scope]] — no new
+forensic disclosure, only removal of an unsupported claim). Also cleaned
+up two ToV/overclaiming leftovers a fresh grep sweep caught that the
+committed session's per-chapter agents missed: "highlights" in the
+abstract's closing sentence (`inizio.tex`), and an absolutist "must
+preserve full business logic accuracy" line in `architecture.tex` §3.2
+(reworded as a design objective checked in Ch.5, not asserted as fact).
+Clean `uv run python build.py` after every edit. Not yet committed on
+this branch — see Git state below. A full Italian-language report
+answering the professor's 12-point review (items 4–13; items 1–3 were
+administrative/personal and out of scope) was written directly in chat
+for the user to send, not saved to a file.
+
+---
+
+Last updated (previous entry): 2026-08-24, same session continued (after the 12-point
 review below landed, the user separately said the "skinny thesis"
 complaint hadn't really been addressed and asked for a literature-depth
 expansion pass across all 7 chapters, run as: 7 parallel forks surveying
