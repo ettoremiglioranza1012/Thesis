@@ -1,10 +1,51 @@
 # Thesis Checkpoint
 
-Push sanity check, 2026-08-25: `review-response-lit-depth` merged into
-`main` (fast-forward, `0902829..66a4db5`) and pushed to `origin/main`,
-`Tesi_UniTN/main.pdf` untracked and deleted from disk per item 2 of the
-supervisor's review. Verified with a clean `git fetch` that
-`origin/main` matches local `main` exactly.
+Session close, 2026-08-25. Continuation of the review-response work:
+after the Pop/Get disclosure landed (see entry below), the user pushed
+back on how it read — the "nothing in the project record states this
+as intentional" framing, repeated near-verbatim in `architecture.tex`
+§3.4, `Implementation.tex`, and `discussion.tex` §6.1, sounded like
+flagging an oversight the author only noticed after the fact. Reworded
+all three to state the same fact (server-side deanonymisation uses
+`Get`, not `Pop`; mappings are never removed by the application) without
+the meta-commentary on intent — same substance, neutral tone. Commit
+`66a4db5`.
+
+Also did a careful line-by-line consistency check of a professor-facing
+email draft the user was writing (summarising how all 12 review points
+were addressed) before it went out: caught that "l'affermazione che il
+client non ha business logic era falsa" mislabelled which clause of the
+original sentence was actually false (it was "holds no sensitive data",
+not "performs no business logic", which stayed true throughout), and
+that an early draft of the Pop/Get explanation claimed the user had
+personally set `Get` "during validation, for more test cases" — which
+contradicted the thesis's own "not documented as intentional" phrasing
+at the time. Resolved by giving neutral wording that states the fact
+without claiming either deliberate-intent or accidental-oversight, so
+it's compatible with the thesis regardless of which history is true.
+
+`review-response-lit-depth` merged into `main` (fast-forward,
+`0902829..66a4db5`, later `88bd8f4` for a checkpoint-only sanity-check
+commit) and pushed to `origin/main`. `Tesi_UniTN/main.pdf` untracked
+and physically deleted from disk per item 2 of the supervisor's review.
+Verified with a clean `git fetch` that `origin/main` matches local
+`main` exactly — confirmed twice after the user reported not seeing the
+push (turned out to be a stale GitHub page view, not an actual gap).
+
+Separately, produced a short list (page numbers in the compiled PDF, no
+prose) of every passage in the thesis that makes a factual claim about
+the *real* Antares/Miorelli system (ERP description, the management
+data-boundary constraint, the "large volume of personnel data" claim,
+the real-tenant migration path, the "agreed with the host company"
+scope decision) as opposed to the mock/stub `MiorelliServiceStub`
+content, for the user to hand to their internship tutor for a fast
+company-side accuracy check. Not saved to a file — given directly in
+chat, already copy-pasted by the user.
+
+Final build clean (`uv run python build.py`), PDF sent to the user
+twice via `SendUserFile` in this session for their own review and to
+attach to an email. Branch state: `main` and `review-response-lit-depth`
+both at `88bd8f4`, both pushed, working tree clean.
 
 ---
 
