@@ -1,6 +1,45 @@
 # Thesis Checkpoint
 
-Last updated: 2026-08-24, new session on branch `review-response-lit-depth`
+Last updated: 2026-08-25, same branch (`review-response-lit-depth`),
+follow-up session. After the previous session's Pop/Get softening
+landed (commits `deabd1e`, `9a5d377`), the user — who knows the actual
+implementation — confirmed directly that the real system always calls
+`Get`, never `Pop`: contexts are never removed by the application on any
+path, only cleared when the Redis process itself restarts (no
+persistence volume, no TTL). This is a reversal of the standing
+[[feedback_thesis_codebase_scope]] decision from two sessions ago (which
+kept private-source findings out of the thesis) — the user explicitly
+asked this time to disclose it as a named limitation instead of staying
+silent on the mechanism, and to explain clearly, in the architecture
+chapter and in the Ch.5 UC-A passage, that deanonymisation runs as the
+first action of *every* individual business-tool invocation (not once,
+centrally, after Claude picks a tool), which is why three separate tool
+calls sharing one `contextId` don't collide under `Get`.
+
+Rewrote every touched passage across `architecture.tex` (§3.1's
+"End-to-end security" bullet, §3.4's `/deanonymize-known` description,
+§3.6.1's Redis-atomicity paragraph, §3.6.3's worked deanonymisation
+trace), `Implementation.tex` (`IAnonymizationContextStore` description),
+`discussion.tex` (§6.1 security/complexity trade-offs, split into "what
+was a deliberate scope decision" — no TTL, no persistence volume — vs.
+"what is an unexplained implementation gap" — Get instead of Pop; §6.3
+scalability paragraph), `conclusions.tex` (§7.1, §7.2), and
+`Validation.tex`'s UC-A multi-call passage (now gives the full causal
+chain: per-invocation deanonymisation → three separate `/deanonymize-known`
+calls on one `contextId` → no collision because `Get` is non-destructive
+→ this says nothing about what a genuinely one-time-use `Pop` would have
+done). Every passage cross-references the others rather than repeating
+the same explanation. Note for future sessions: this claim (`Get`
+instead of `Pop`) rests on the actual C# source, not on
+`internship_documents/anonymization-service.md`, which still documents
+`Pop` as the mechanism — the docs and the real code disagree here, and
+only the thesis now reflects the code. Clean `uv run python build.py`
+after every edit; independent grep for banned ToV patterns on all
+touched files came back clean. Committed and pushed (see Git state).
+
+---
+
+Last updated (previous entry): 2026-08-24, new session on branch `review-response-lit-depth`
 (one commit, `af15762`, ahead of `main`). Asked to independently review,
 as a critical outside reader, whether the committed 12-point response
 actually held up — not just re-read the checkpoint's own self-report.
