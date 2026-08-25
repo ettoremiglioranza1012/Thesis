@@ -185,7 +185,7 @@ Every one of the five is still scored correct in Table~\ref{tab:routing_summary}
 
 What the routing data does explain is why the multi-call repetitions did not visibly go wrong. Each of the three fragments, \emph{Bergamo}, \emph{Via della Fonda}, and \emph{Giulia S.r.l.}, deanonymises correctly and independently identifies the same cantiere. Section~\ref{subsec:arch_anonymization_service} describes deanonymisation as a one-time-use, single-call operation per context; this data is the concrete case where a single context is actually consumed more than once. Each call still resolved correctly here, but that does not establish what the store guarantees in general when that happens, only that it happened without visible failure on this prompt. That is a property of this one prompt against this one mock catalogue of three cantieri, not a guarantee the architecture provides. A differently phrased site descriptor, or a catalogue where a stray fragment partially matches a second, different cantiere, could turn the same fragmentation pattern into multiple contradictory tool calls rather than redundant correct ones.
 
-\subsection{What This Chapter Establishes, and What It Does Not}
+\subsection{Scope of the Validation Relative to the Research Questions}
 \label{subsec:usecases_rq_mapping}
 
 Section~\ref{sec:intro_objectives} posed three research questions before any of the results above existed. Each deserves a direct answer here, one at a time, rather than leaving the reader to infer the connection between a routing-accuracy percentage and a claim made two chapters earlier.
