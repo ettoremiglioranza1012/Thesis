@@ -1,5 +1,13 @@
 # Thesis Checkpoint
 
+Push sanity check, 2026-08-25: `review-response-lit-depth` merged into
+`main` (fast-forward, `0902829..66a4db5`) and pushed to `origin/main`,
+`Tesi_UniTN/main.pdf` untracked and deleted from disk per item 2 of the
+supervisor's review. Verified with a clean `git fetch` that
+`origin/main` matches local `main` exactly.
+
+---
+
 Last updated: 2026-08-25, same branch (`review-response-lit-depth`),
 follow-up session. After the previous session's Pop/Get softening
 landed (commits `deabd1e`, `9a5d377`), the user — who knows the actual
