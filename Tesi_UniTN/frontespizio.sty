@@ -13,7 +13,7 @@
 
 % Flags, counters
 \def\@relatorilist{}
-%\def\@correlatorilist{}
+\def\@correlatorilist{}
 
 % logo positioning options
 \def\@topPosition{top}
@@ -74,7 +74,7 @@
 \newcommand{\AnnoAccademico}[1]{\newcommand{\@AnnoAccademico}{#1}}
 \newcommand{\Logo}[1]{\newcommand{\@Logo}{#1}}
 \newcommand{\Relatore}[1]{\listadd{\@relatorilist}{#1}}
-%\newcommand{\Correlatore}[1]{\listadd{\@correlatorilist}{#1}}
+\newcommand{\Correlatore}[1]{\listadd{\@correlatorilist}{#1}}
 
 \newcommand{\@Candidato}{}
 \newcommand{\Candidato}[1]{\renewcommand{\@Candidato}{#1}}
@@ -193,11 +193,11 @@
                 \normalsize
 
                 \textbf{\@RelatoreLabel}\par
-                \myprintlist{\@relatorilist} 
+                \myprintlist{\@relatorilist}
 
-                %\vspace{\@relandcorrelsep}
-                %\textbf{\@CorrelatoreLabel}\par
-                %\myprintlist{\@correlatorilist}
+                \vspace{\@relandcorrelsep}
+                \textbf{\@CorrelatoreLabel}\par
+                \myprintlist{\@correlatorilist}
             \end{minipage}\hfill%
             \begin{minipage}[t]{.45\textwidth}
                 \normalsize
