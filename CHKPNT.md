@@ -1,5 +1,160 @@
 # Thesis Checkpoint
 
+**Session close, 2026-08-30 (later session), branch `main`.** The thesis
+was already delivered (see entry below); this session was scoped
+entirely to building the defense slide deck for a Monday deadline,
+starting from an internship demo skeleton the user copied into
+`slides/` (`slide.tex`, `CNU.sty`, `final_runtime_flow.png`, `pic/`,
+`ref.bib`).
+
+**Structure chosen: Idea 3, "lead with the claim, defend it."** Out of
+three proposed structures (mirror the three research questions; trace
+one request live through the diagram; open with the closing claim and
+defend it), the user picked Idea 3 and asked for a threat-model slide
+added to the plan. Final 11-slide deck: title → the claim (3
+preconditions from `conclusions.tex` §7.2) → motivation → architecture
+(components, then the runtime-flow diagram) → threat model (STRIDE +
+OWASP LLM Top 10, from `discussion.tex`'s existing `tab:threat_model`)
+→ methodology → evidence mapped to the three preconditions → what the
+evidence doesn't cover → claim restated → questions. A planning doc
+(`slides/plan.md`) was written first with per-slide content and
+reasoning, iterated with the user, then deleted once the `.tex` was
+built from it, per explicit request.
+
+**A significant discovery, found incidentally, not gone looking for.**
+While fixing a Get/Pop wording mismatch the user flagged between a
+slide bullet and the diagram, a checksum comparison showed
+`slides/final_runtime_flow.png` (as the user had copied it in) was
+byte-identical to `Tesi_UniTN/Immagini/antares_ai_secure_flow_corrected.png`
+— the thesis's own Figure 3.1, referenced by `architecture.tex`. That
+file had gone missing from disk (an uncommitted deletion, not caused by
+this session) at the same time, which meant **the delivered thesis's
+own diagram still said "pop, read + delete"**, contradicting the
+Get-not-Pop text that earlier sessions spent considerable effort
+getting right in `architecture.tex`/`discussion.tex`. Flagged this to
+the user directly rather than silently fixing or silently committing
+the file deletion. The user copied the (by-then-corrected) image back
+into `Tesi_UniTN/Immagini/`; this session renamed it to the filename
+LaTeX expects (`antares_ai_secure_flow_corrected.png`) and verified a
+clean thesis rebuild with Figure 3.1 now correct (checked directly in
+the compiled PDF, page 19). The image fix itself was a pixel-level
+patch (Python/Pillow, run via `uv run --with pillow`): measured the
+exact bounding box and font of the original "pop, read / + delete"
+label, erased it with a matched white rectangle, and redrew "get, read
+/ (non-destructive)" in the same font/size/color/position, verified not
+to collide with the diagram's dashed connector line. Backup of the
+pre-patch image left at `/tmp/final_runtime_flow.orig.png` (not
+committed, session-local).
+
+**Two real, silent beamer overflow bugs found and fixed** — content
+clipped off the bottom of a frame with no compile error, only visible
+by reading each rendered page in full: the "What the Evidence Doesn't
+Cover" slide's seventh bullet was invisible until spacing was
+tightened, and the "Why It's Hard" slide's fourth bullet was clipped
+until it was shrunk. Also: the runtime-flow diagram, being nearly
+square (2720×2640px), was constrained only by `width` and overflowed
+past the bottom of its frame — including a legend row that was entirely
+hidden — until also constrained by `height` with `keepaspectratio`. A
+separate bug in the title page (`\\[4pt]` inside `\institute{}` leaking
+literally into the footline, which reuses the same string) was fixed
+with proper `\author[short]{full}`-style short forms.
+
+**Two content-accuracy corrections from the user, both instructive.**
+(1) After a "not X, not Y" pattern reappeared in a rewritten bullet
+despite an earlier explicit ban on the construction (extending
+`CLAUDE.md`'s own thesis-style rule to the slides), did a full sweep
+and fixed every instance, not just the flagged one. (2) The user
+caught a Redis Get/Pop bullet that had invented an unsupported causal
+narrative ("Pop was tried, would only work once, so Get was chosen for
+that reason") — "this is not actually what happened, dig better."
+Rewrote it to state only what `discussion.tex` already establishes
+(present-tense structural fact plus consequence: switching to `Pop`
+today would break multi-call correctness; "a real, unresolved
+trade-off," not a historical decision narrative), instead of
+inventing thesis-adjacent history under time pressure. Both are now
+useful as a general pattern: check literal instructions were actually
+followed everywhere, not just where flagged, and never dress up a
+present-tense structural fact as a decision history the record doesn't
+support.
+
+**Style passes, both user-initiated:** all sentence-level em dashes
+(`---`) replaced with commas across the deck, deliberately leaving
+compound-word hyphens (`non-destructive`, `server-side`, etc.) and the
+Wilson CI numeric range (`89--98%`) untouched, since neither is the
+construction being targeted and the CI range would be misstated by a
+comma. Separately, "Why It's Hard" → "Motivation" and "What the
+Evidence Doesn't Cover" → "Limitations of the Evidence," with the
+bullet prose under both rewritten to drop contractions and informal
+phrasing.
+
+**Title slide fixes:** co-supervisor's company corrected to Saidea
+S.r.l. (was wrongly Delta Informatica); added the full list of all
+seven Data Science interdepartmental programme departments (the user
+first asked for just one, matching `inizio.tex`'s single
+`\Dipartimento{}` field, then clarified they wanted all seven — this
+is an interdepartmental UniTN programme, not a single-department one),
+sized down twice on request (`\footnotesize` → `\scriptsize` →
+`\tiny`) to keep the title page from feeling crowded.
+
+**Infrastructure:** `slides/build.py` added, mirroring
+`Tesi_UniTN/build.py`'s `uv run python build.py [--clean|--open]`
+interface exactly, so the user can rebuild independently. `.gitignore`
+gained `slides/slide.pdf` (build output, same convention as
+`Tesi_UniTN/main.pdf`). Every edit this session was verified with a
+full `uv run python build.py` plus a page-by-page visual read via the
+PDF-reading tool before being reported as done — necessary because the
+overflow bugs above were real and silent, with no compile-time signal.
+
+**Git state:** nine commits made this session, all pushed to
+`origin/main` (`5807bfe` through `83b7f0d`), each scoped tightly to
+only the file(s) actually touched by that step. Deliberately excluded
+from every commit: `Tesi_UniTN/Impaginazione/inizio.tex` and
+`Tesi_UniTN/frontespizio.sty`, both still modified in the working tree
+per the prior session's explicit "don't commit yet" instruction (see
+entry below) — untouched again this session; and the untracked
+`Tesi_UniTN/tesi_Miglioranza_*.pdf` / `professor_review_draft.md`,
+also untouched.
+
+**Open items for next session:**
+1. No live timed read-through has happened. The planning doc estimated
+   ~14:00 of the 15-minute slot before it was deleted; that number was
+   never verified against actual speaking pace and doesn't survive
+   anywhere but this note.
+2. No speaker notes were added to `slide.tex` (`\note{}`), by explicit
+   user choice — narration is left to the presenter.
+3. Whether the Monday deadline was met, and whether the deck was
+   actually sent to the professor, is unconfirmed as of this write-up.
+4. `Tesi_UniTN/Impaginazione/inizio.tex` and `Tesi_UniTN/frontespizio.sty`
+   remain uncommitted from the prior session — check with the user
+   before assuming they're ready to commit now that slide work has
+   also landed on `main`.
+5. The threat-model table (slide 6) still lists a "Caller identity
+   fallback" row; the equivalent bullet was removed from slide 9 on
+   request, but the table row was left in place since it wasn't asked
+   for — worth confirming that asymmetry is intentional.
+
+---
+
+**THESIS DELIVERED — 2026-08-30.** The thesis has been submitted/handed
+in. This session (short, front-matter only) fixed the title page
+(`Tesi_UniTN/Impaginazione/inizio.tex`, `Tesi_UniTN/frontespizio.sty`):
+added `\Dipartimento{Dipartimento di Sociologia e Ricerca Sociale}`
+above the existing `\CorsoDiLaurea` line, and replaced the bottom
+"Final examination date: September 15, 2026" line with "Anno Accademico
+25/26" (dropped the hardcoded "Final examination date:" label in the
+`.sty` so `\DataEsame`'s value prints on its own). Rebuilt clean each
+time via `uv run python build.py`. **Per explicit user instruction, this
+session's changes were NOT committed or pushed** — working tree has
+`Tesi_UniTN/Impaginazione/inizio.tex` and `Tesi_UniTN/frontespizio.sty`
+modified, plus untracked `Tesi_UniTN/tesi_Miglioranza_257311.pdf`,
+`Tesi_UniTN/tesi_Miglioranza_Ettore_257311.pdf`, `professor_review_draft.md`,
+and a `slides/` directory — none of these were reviewed or touched this
+session beyond what's described above. Any future session should check
+with the user before assuming further thesis-content changes are wanted
+now that it's delivered.
+
+---
+
 Session close, 2026-08-25. Continuation of the review-response work:
 after the Pop/Get disclosure landed (see entry below), the user pushed
 back on how it read — the "nothing in the project record states this
