@@ -1,0 +1,188 @@
+\documentclass{beamer}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+
+\usepackage{latexsym,amsmath,xcolor,multicol,booktabs,array}
+\usepackage{graphicx,listings,stackengine}
+\usepackage{comment}
+
+\usepackage{CNU}
+\setbeamertemplate{navigation symbols}{}
+
+\author[Miglioranza]{Ettore Miglioranza}
+\title[Secure LLM Orchestration via MCP]{Secure LLM Orchestration for Enterprise Workflows Using the Model Context Protocol}
+\subtitle{MSc Thesis Defense}
+\institute[Universit\`a di Trento]{Supervisor: Prof.\ Daniele Miorandi \\ Co-supervisor: Massimo Turri (CTO, Delta Informatica) \\[4pt] Universit\`a di Trento --- Data Science}
+\date[A.A. 2025/26]{A.A. 2025/26}
+
+\begin{document}
+
+% -------------------------------------------------------
+% Slide 1: Title
+% -------------------------------------------------------
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 2: The Claim
+% -------------------------------------------------------
+\begin{frame}{The Claim}
+    \centering
+    \large\textit{``Privacy and LLM capability are compatible --- under three conditions.''}
+    \vspace{0.3cm}
+
+    \begin{enumerate}
+        \setlength{\itemsep}{0.22cm}
+        \item[1.] The architecture itself keeps the model away from sensitive data.
+        \item[2.] Detection recall is \textbf{measured} directly against real prompts.
+        \item[3.] Business logic runs as \textbf{deterministic, auditable} server code.
+    \end{enumerate}
+
+    \vspace{0.25cm}
+    \small Antares AI meets all three, in one workforce-management system, on the dataset this thesis tested.
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 3: Motivation
+% -------------------------------------------------------
+\begin{frame}{Motivation}
+    \small
+    \begin{itemize}
+        \setlength{\itemsep}{0.2cm}
+        \item Deloitte, \emph{State of Ethics and Trust in Technology} (approximately 1,848 professionals, September 2024): data privacy is the leading ethical concern regarding generative AI, cited by \textbf{40\%} of respondents, an increase from 25\% in 2023.
+        \item Antares/Miorelli data is personnel-sensitive by construction: names, phone numbers, geographic coordinates, and absence records constitute personal data under the GDPR.
+        \item A raw prompt such as \emph{``Trova i colleghi di Giulia Conti''}, transmitted to an external LLM, exposes a real name beyond the company boundary.
+        \item The literature surveyed for this thesis treats rule-based detection and one-way redaction as separate techniques; no system reviewed combines local detection, reversible tokenisation, external semantic routing, and deterministic execution.
+    \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 4: Architecture --- Components
+% -------------------------------------------------------
+\begin{frame}{Architecture --- Components}
+    Four cooperating runtime services:
+    \vspace{0.3cm}
+    \begin{itemize}
+        \setlength{\itemsep}{0.3cm}
+        \item \textbf{MCP Client} --- builds the raw prompt, calls \texttt{/anonymize}, then \texttt{ask\_antares(user\_input, context\_id)}. Never sees PII again after that first call.
+        \item \textbf{Anonymization API} --- GLiNER-based detection, tokenisation, \texttt{/deanonymize-known}.
+        \item \textbf{GLiNER Service} --- stateless multilingual NER oracle, no knowledge of tokens or Redis.
+        \item \textbf{MCP Server / JobTools} --- Claude routes via \texttt{ask\_antares}, \texttt{JobTools} deanonymises and executes, server-local only.
+    \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 5: Architecture --- Diagram
+% -------------------------------------------------------
+\begin{frame}[plain]{Architecture --- Runtime Flow}
+    \centering
+    \vspace{0.3cm}
+    \includegraphics[width=0.98\textwidth,height=0.85\textheight,keepaspectratio]{final_runtime_flow.png}
+    \vfill
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 6: Threat Model
+% -------------------------------------------------------
+\begin{frame}{Threat Model}
+    \small STRIDE + OWASP LLM Top 10, applied over four trust boundaries.
+    \vspace{0.3cm}
+    \centering
+    \footnotesize
+    \begin{tabular}{>{\raggedright\arraybackslash}p{3.6cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{4.2cm}}
+        \toprule
+        \textbf{Boundary} & \textbf{Threat class} & \textbf{Status} \\
+        \midrule
+        GLiNER detection miss & Info.\ disclosure & \textbf{Measured} --- 91.5\% recall \\
+        Redis mapping persistence & Info.\ disclosure & Open, named trade-off \\
+        Local log files & Info.\ disclosure & Open \\
+        MCP transport (no OAuth 2.1) & Spoofing / EoP & Open, inert locally \\
+        Caller identity fallback & Spoofing / EoP & Open, fail-open by design \\
+        MCP server--LLM (prompt injection) & Excessive Agency & \textbf{Structurally mitigated}, untested adversarially \\
+        \bottomrule
+    \end{tabular}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 7: Methodology
+% -------------------------------------------------------
+\begin{frame}{Methodology}
+    \small
+    \begin{itemize}
+        \setlength{\itemsep}{0.25cm}
+        \item \textbf{Detection:} 50 hand-built Italian prompts, 82 labelled spans, coverage vs.\ strict metrics (CoNLL-2003 convention).
+        \begin{itemize}
+            \item[] \scriptsize\textit{``Trova i lavoratori pi\`u vicini al cantiere Bergamo Via della Fonda 5 Giulia S.r.l.\ entro 15 km''} $\rightarrow$ 3 tokens (\texttt{Bergamo}, \texttt{Via della Fonda}, \texttt{Giulia S.r.l.})
+        \end{itemize}
+        \item \textbf{Correctness:} differential testing --- an independent reference implementation, zero shared code with the system under test.
+        \item \textbf{PII boundary audit:} the exact Claude payload reconstructed client-side (no server instrumentation needed), scanned for 39 known real PII values across 50 prompts.
+        \item \textbf{Routing:} log-diffing via timestamped report files --- 21 prompts $\times$ 5 repetitions = 105 trials at temperature 1.0.
+        \begin{itemize}
+            \item[] \scriptsize Same canonical prompt $\rightarrow$ routed to \texttt{get\_nearest\_workers\_to\_cantiere}, detected via a new \texttt{UC-A}-tagged log file.
+        \end{itemize}
+    \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 8: Evidence
+% -------------------------------------------------------
+\begin{frame}{Evidence --- Mapped to the Three Preconditions}
+    \small
+    \centering
+    \renewcommand{\arraystretch}{1.4}
+    \begin{tabular}{>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}p{5.2cm}}
+        \toprule
+        \textbf{Precondition} & \textbf{Measured} & \textbf{Result} \\
+        \midrule
+        \textbf{Structural boundary} & PII leak audit, 50 prompts & 2/50 leaks, both explained by a detection miss --- zero unexplained leaks \\
+        \textbf{Detection recall measured} & GLiNER coverage P/R/F1 & 93.8\% / 91.5\% / 0.926 --- 7 false negatives, all itemised and traced to cause \\
+        \textbf{Deterministic, auditable logic} & 12 E2E cases, 105 routing trials & 12/12 matched independent reference; 95.2\% routing (Wilson 95\% CI $\approx$ 89--98\%); 21/21 prompts stable across 5 reps at temp=1.0 \\
+        \bottomrule
+    \end{tabular}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 9: Limitations of the Evidence
+% -------------------------------------------------------
+\begin{frame}{Limitations of the Evidence}
+    \scriptsize
+    \begin{itemize}
+        \setlength{\itemsep}{0.14cm}
+        \item \textbf{Redis: no TTL; deanonymisation reads mappings via \texttt{Get}, leaving them in place.} The interface also defines a one-time-use \texttt{Pop}, which this path never calls. A single request can invoke the same tool multiple times against one context --- the Bergamo prompt fragments into three location tokens, each requiring a deanonymisation call --- so switching to \texttt{Pop} today would break multi-call correctness. A real, unresolved trade-off between reliability and data minimisation, requiring a deliberate design change to close.
+        \item Local logs are stored unencrypted, without access control or a retention policy.
+        \item The MCP transport lacks OAuth 2.1 authorisation --- any client reaching the port is accepted.
+        \item No adversarial prompt-injection test set was constructed; the structural defence is present but untested under active attack.
+        \item Validation was conducted against a mock Miorelli backend; UC-C's absence/substitution branch never executed within the ticket window.
+        \item The routing test set comprises 21 hand-built prompts. Consistency at temperature 1.0 held on this fixed set; whether it holds under arbitrary phrasing remains untested.
+    \end{itemize}
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 10: Claim Restated
+% -------------------------------------------------------
+\begin{frame}{Claim Restated}
+    \centering
+    \vspace{0.5cm}
+    \Large\textit{``Antares AI meets all three conditions --- within one workforce-management context, on the dataset and prompts this thesis tested.''}
+    \vspace{0.6cm}
+
+    \small What generalises is the \textbf{pattern}: local detection $\rightarrow$ reversible tokens $\rightarrow$ external routing $\rightarrow$ deterministic execution $\rightarrow$ measured recall. The numbers are tied to this dataset.
+\end{frame}
+
+% -------------------------------------------------------
+% Slide 11: Questions
+% -------------------------------------------------------
+\begin{frame}
+    \centering
+    \Large Thank you.
+    \vspace{0.4cm}
+
+    \normalsize Questions?
+    \vspace{0.6cm}
+
+    \small Ettore Miglioranza \\
+    \texttt{ettore.miglioranza@studenti.unitn.it}
+\end{frame}
+
+\end{document}

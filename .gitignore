@@ -31,3 +31,4 @@ __pycache__/
 
 # Build output — build locally with `uv run python build.py`, don't commit
 Tesi_UniTN/main.pdf
+slides/slide.pdf
