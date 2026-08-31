@@ -1,5 +1,162 @@
 # Thesis Checkpoint
 
+**Session close, 2026-09-01, branch `main`.** Full rework of
+`slides/slide.tex` in response to a point-by-point review from the
+supervisor (relatore), delivered by the user as six numbered points
+plus a final consistency check, with an explicit operational rule
+followed all session: one point at a time, diff shown and approved
+before writing, no em dash, no invented data or citations, theme/colors
+unchanged, deck same length or shorter. Defense date confirmed by the
+user: 15 September 2026.
+
+**Point 1, absolute privacy claims removed.** Searched the deck for
+`blind`, `without access`, `no exposure`, `never sees`, `guarantee` and
+listed every hit before touching anything, per instruction. Fixed
+subtitle (`Keeping the AI Model Blind...` to `Substituting Real Employee
+Data Before It Reaches the AI Model`, describes the mechanism instead of
+asserting an outcome), a "why four services" bullet, and the mechanism
+slide's title, all previously contradicted by the deck's own 2/50 leak
+result. Left two instances deliberately unchanged on the user's explicit
+reasoning: the gap slide's "no exposure" bullet (a stated requirement
+under a column headed "REQUIRED BY", not a claim of achievement) and the
+research-question quote (already hedged by its own closing clause).
+"Guarantee" in the routing slide's repeatability note was flagged as
+out of scope (a different topic, LLM output repeatability, not privacy)
+and left as is after the user agreed.
+
+**Point 2, three different test-set sizes explained, not just labeled.**
+Read `Tesi_UniTN/capitoli/Validation.tex` in full to ground this rather
+than guessing. Three genuinely separate, purpose-built sets: 50 prompts
+/ 82 labelled spans for detection (the leak audit reuses this same set,
+doesn't have its own), 21 prompts x 5 repetitions for routing
+(repetition needed because temperature 1.0 sampling isn't observable in
+one pass), 12 end-to-end scenarios across three use cases for
+correctness (business-logic coverage, not a statistical sample). A first
+attempt at per-slide "why different" lines was rejected by the user for
+starting from the recognition table instead of asking the user for the
+real reason first; the user then supplied the actual reasoning (each
+stage needs different evidence) and the lines were rewritten around
+that, with several rounds of wording correction (no numbers repeated
+three times on one slide, no unverified claims presented as confirmed
+findings, position relative to existing text matters for readability).
+
+**Point 3, two missing citations.** Gap slide (existing-architecture
+assumption) and contributions slide (novelty of the evaluation
+methodology). Did not search the web, per instruction, only the thesis's
+own already-verified sources. Gap-slide citation resolved directly:
+`background.tex` supports both halves of the claim (`anthropic2024mcp`
+for "trusted with raw data," `openai2025privacyfilter` for "denied
+access entirely" via one-way redaction), both already in `biblio.bib`,
+year fields checked directly against the `.bib` entries rather than
+inferred from the citation keys (the `openai2025privacyfilter` key says
+2025, the actual `year` field says 2026, used the field). Contributions
+slide's novelty claim was originally unresolvable ("prove a methodology
+didn't exist before" isn't a claim any citation can support), fixed by
+reframing per the user's chosen option: cite the two closest existing
+works already in the thesis (Hou et al. 2025, Albanese et al. 2026) and
+state precisely what they don't test (tool-execution correctness),
+instead of asserting a general absence.
+
+**Point 4, MCP given its own slide.** The mechanism slide previously
+carried three messages (diagram, two "Bound" annotations, an MCP
+footnote); split so the diagram stands alone and MCP gets a dedicated
+slide (what it is / why chosen / what without it), plain language, no
+unexplained jargon including "tool calling." The two "Bound" boxes moved
+to a new backup slide. Placement was corrected once by the user: the MCP
+slide belongs after the end-to-end example, not before, so the committee
+already has a concrete case to hang the explanation on.
+
+**Point 5, four results cut to three.** The 12/12 correctness result
+(lowest sample size, measures a stage already described as
+deterministic) moved to backup. Every main-deck reference to it checked
+and updated: the "instrument" slide's "reference system" line was
+rewritten around a user-supplied replacement so it no longer promises a
+result the main deck doesn't show.
+
+**Point 6, jargon and slide order.** "Recall" removed from the one
+main-deck title that used it unexplained (backup keeps it). "Tokenisation"
+replaced with the deck's own established phrase ("placeholder
+substitution"), in both the main contributions slide and the backup
+architecture slide. The validation-method slide (mentions "mock
+backend") moved out from between the gap and architecture slides to
+right after MCP, before the results section, so the architecture is
+established before the audience meets test-methodology vocabulary. The
+product name "Antares AI" was relocated (not just left removed) to open
+the "why four services" slide, so the committee knows what system is
+being described before the first diagram, and also kept on the
+validation-method slide per the user's explicit call (closes the loop
+after two content slides with no product name).
+
+**A supervisor-level read-through the user asked for explicitly**
+(read the deck end to end as a non-technical committee would, list only
+contradictions-between-slides and unexplained-jargon-on-first-use,
+propose nothing) surfaced two real findings, both fixed in a follow-up
+pass: the validation-method slide claimed "each [stage] on its own set
+of test requests" while the leak-audit slide two slides later says it
+"reuses the detection requests" (a real contradiction, not a rewording
+choice); and "span," "placeholder," "payload," and "prompt" were each
+first used in the main deck without ever being defined, "prompt" in
+particular reintroducing vocabulary the deck otherwise avoids in favour
+of "request." All four fixed with user-supplied exact wording where
+given; one partial fix from an earlier pass ("span" removed from a
+slide's first bullet but not its third) was caught and completed in
+this pass too.
+
+**Template alignment, requested last.** Switched the deck's visual
+identity to match Lorenzo Attolico's co-defense deck, per the
+supervisor's "use a common template" instruction from the *previous*
+session (see entry below) — `\usetheme{moloch}` does not exist in
+`tectonic`'s package bundle (confirmed twice, by direct test, not
+memory) and was not force-installed; the user explicitly said stay on
+`metropolis` (moloch's underlying theme, functionally and visually
+identical, just distributed under a different name for a German
+trademark reason) rather than risk a local package-file hack. `FiraSans`
+was added successfully once its real constraint was found by testing,
+not assumed: it must load *after* `\usetheme{metropolis}`, not before —
+loading before crashes `tectonic` with a segfault (exit 139), a fact
+established by direct reproduction at both the start and the end of this
+session, not inferred. `\institute` simplified to "University of
+Trento". Removed two now-unused preamble definitions (`vincolo` TikZ
+style, `slideorange` color) after confirming with `grep` that nothing
+referenced them anymore, following the Bound-boxes-to-backup move in
+point 4.
+
+**Global hyphen ban, carried over from a mid-session ad hoc request**
+(not one of the six numbered points, came up separately): every literal
+`-` in visible slide text was replaced with commas, colons, or spacing,
+and `\hyphenpenalty=10000` / `\exhyphenpenalty=10000` were added to the
+preamble after discovering `tectonic`'s automatic line-wrap hyphenation
+was silently inserting a literal hyphen into a wrapped title
+(`data ex-posure`) that no explicit edit had put there.
+
+**Final state:** main deck 14 frames, 1 backup divider, 5 backup frames,
+21 PDF pages (one `\pause` reveal on the gap slide adds a page). Order:
+title, problem, gap+RQ, why-four-services, mechanism, end-to-end
+example, MCP, validation method, detection (91.5%), leak audit (2/50),
+routing (95.2%), limitations, contributions, thank you. Backup:
+divider, four services, two design bounds, methodology detail,
+correctness (12/12), full limitations list. Every build verified clean
+via `uv run python build.py --clean` and a full page-by-page visual read
+via the PDF-reading tool, not just a compile-success check, following
+the same discipline as the prior slide session (silent beamer overflow
+has no compile-time signal).
+
+**Open items:** the gap slide's citation placeholder is now filled
+(point 3 resolved both citations, not just one, contrary to what was
+still open at the end of the point-3 discussion mid-session). No live
+timed read-through has happened yet (carried over from the prior slide
+session, still true). No speaker notes, by the same standing choice.
+Whether this deck has actually been sent to the supervisor ahead of the
+15 September 2026 defense is unconfirmed. `Tesi_UniTN/Impaginazione/inizio.tex`
+and `Tesi_UniTN/frontespizio.sty` remain modified but deliberately
+uncommitted from a prior session (see entry below), untouched again this
+session; same for the untracked `Tesi_UniTN/tesi_Miglioranza_*.pdf` and
+`professor_review_draft.md`. This session's own changes
+(`slides/slide.tex`, new `slides/figures/unitn_logo.png`) were committed
+and pushed separately from those pre-existing untouched items.
+
+---
+
 **Session close, 2026-08-30 (later session), branch `main`.** The thesis
 was already delivered (see entry below); this session was scoped
 entirely to building the defense slide deck for a Monday deadline,
